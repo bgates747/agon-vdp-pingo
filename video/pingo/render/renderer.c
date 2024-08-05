@@ -242,14 +242,14 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
                     //show_pixel(textCoordx, textCoordy, text.a, text.b, text.g, text.r);
 #endif
 
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,y}, text, diffuseLight);
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,scrSize.y - y}, text, diffuseLight);
                 } else {
                     Pixel pixel;
                     pixel.a = 255;
                     pixel.b = 255;
                     pixel.g = 0;
                     pixel.r = 255;
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,y}, pixel, diffuseLight);
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,scrSize.y - y}, pixel, diffuseLight);
                 }
 
             }

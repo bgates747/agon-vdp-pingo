@@ -1076,7 +1076,7 @@ typedef struct tag_Pingo3dControl {
 
         // Set the projection matrix
         renderer.camera_projection =
-            p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)size.x / (p3d::F_TYPE)size.y, 0.6);
+            p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)size.x / (p3d::F_TYPE)size.y, 0.5);
 
         if (m_camera.m_modified) {
             m_camera.m_is_camera = true;
