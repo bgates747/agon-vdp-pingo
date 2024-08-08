@@ -94,114 +94,121 @@ void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float 
         texture_draw(f, pos, pixelMul(color,illumination));
     }
 }
-
-int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
-
+int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
     const Vec2i scrSize = r->frameBuffer.size;
-    Object * o = ren.impl;
-    Vec2f * tex_coords = o->textCoord;
+    Object *o = ren.impl;
+    Vec2f *tex_coords = o->textCoord;
     if (!tex_coords) {
         tex_coords = o->mesh->textCoord;
     }
 
     // MODEL MATRIX
-    Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
+    Mat4 m = mat4MultiplyM(&o->transform, &object_transform);
 
     // VIEW MATRIX
     Mat4 v = r->camera_view;
     Mat4 p = r->camera_projection;
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
-        Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
-        Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
-        Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
+        Vec3f *ver1 = &o->mesh->positions[o->mesh->pos_indices[i + 0]];
+        Vec3f *ver2 = &o->mesh->positions[o->mesh->pos_indices[i + 1]];
+        Vec3f *ver3 = &o->mesh->positions[o->mesh->pos_indices[i + 2]];
 
-        Vec2f tca = {0,0};
-        Vec2f tcb = {0,0};
-        Vec2f tcc = {0,0};
+        Vec2f tca = {0, 0};
+        Vec2f tcb = {0, 0};
+        Vec2f tcc = {0, 0};
 
         if (o->material != 0) {
-            tca = tex_coords[o->mesh->tex_indices[i+0]];
-            tcb = tex_coords[o->mesh->tex_indices[i+1]];
-            tcc = tex_coords[o->mesh->tex_indices[i+2]];
+            tca = tex_coords[o->mesh->tex_indices[i + 0]];
+            tcb = tex_coords[o->mesh->tex_indices[i + 1]];
+            tcc = tex_coords[o->mesh->tex_indices[i + 2]];
         }
 
-        Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
-        Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
-        Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
+        Vec4f a = {ver1->x, ver1->y, ver1->z, 1};
+        Vec4f b = {ver2->x, ver2->y, ver2->z, 1};
+        Vec4f c = {ver3->x, ver3->y, ver3->z, 1};
 
-        a = mat4MultiplyVec4( &a, &m);
-        b = mat4MultiplyVec4( &b, &m);
-        c = mat4MultiplyVec4( &c, &m);
+        a = mat4MultiplyVec4(&a, &m);
+        b = mat4MultiplyVec4(&b, &m);
+        c = mat4MultiplyVec4(&c, &m);
 
-        //Calc Face Normal
-        Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        Vec3f normal = vec3Normalize(vec3Cross(na, nb));
-        Vec3f light = vec3Normalize((Vec3f){-8,-5,5});
-        float diffuseLight = (1.0 + vec3Dot(normal, light)) *0.5;
-        diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
+        // Transform to view space
+        a = mat4MultiplyVec4(&a, &v);
+        b = mat4MultiplyVec4(&b, &v);
+        c = mat4MultiplyVec4(&c, &v);
 
-        a = mat4MultiplyVec4( &a, &v);
-        b = mat4MultiplyVec4( &b, &v);
-        c = mat4MultiplyVec4( &c, &v);
+        float diffuseLight = 1.0;
 
-        a = mat4MultiplyVec4( &a, &p);
-        b = mat4MultiplyVec4( &b, &p);
-        c = mat4MultiplyVec4( &c, &p);
+        if (false) {
+            // Calc Face Normal and Diffuse Light
+            Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
+            Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
+            Vec3f normal = vec3Normalize(vec3Cross(na, nb));
+            Vec3f light = vec3Normalize((Vec3f){-8, -5, 5});
+            diffuseLight = (1.0 + vec3Dot(normal, light)) * 0.5;
+            diffuseLight = MIN(1.0, MAX(diffuseLight, 0.0));
+        }
 
+        // // Frustum culling: Check if the triangle is within the frustum
+        // if ((a.z > 0 && b.z > 0 && c.z > 0) || 
+        //     (a.z < 0 && b.z < 0 && c.z < 0)) {
+        //     continue;
+        // }
 
-        //Triangle is completely behind camera
-        if (a.z > 0 && b.z > 0 && c.z > 0)
-           continue;
+        // Project to screen space
+        a = mat4MultiplyVec4(&a, &p);
+        b = mat4MultiplyVec4(&b, &p);
+        c = mat4MultiplyVec4(&c, &p);
 
-        // convert to device coordinates by perspective division
+        // Perspective divide
         a.w = 1.0 / a.w;
         b.w = 1.0 / b.w;
         c.w = 1.0 / c.w;
-        a.x *= a.w; a.y *= a.w; a.z *= a.w;
-        b.x *= b.w; b.y *= b.w; b.z *= b.w;
-        c.x *= c.w; c.y *= c.w; c.z *= c.w;
+        a.x *= a.w;
+        a.y *= a.w;
+        a.z *= a.w;
+        b.x *= b.w;
+        b.y *= b.w;
+        b.z *= b.w;
+        c.x *= c.w;
+        c.y *= c.w;
+        c.z *= c.w;
 
-        float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
-        if (clocking >= 0)
-            continue;
+        // Screen coordinates
+        float halfX = scrSize.x / 2;
+        float halfY = scrSize.y / 2;
+        Vec2i a_s = {a.x * halfX + halfX, a.y * halfY + halfY};
+        Vec2i b_s = {b.x * halfX + halfX, b.y * halfY + halfY};
+        Vec2i c_s = {c.x * halfX + halfX, c.y * halfY + halfY};
 
-        //Compute Screen coordinates
-        float halfX = scrSize.x/2;
-        float halfY = scrSize.y/2;
-        Vec2i a_s = {a.x * halfX + halfX,  a.y * halfY + halfY};
-        Vec2i b_s = {b.x * halfX + halfX,  b.y * halfY + halfY};
-        Vec2i c_s = {c.x * halfX + halfX,  c.y * halfY + halfY};
-
+        // Compute bounding box
         int32_t minX = MIN(MIN(a_s.x, b_s.x), c_s.x);
         int32_t minY = MIN(MIN(a_s.y, b_s.y), c_s.y);
         int32_t maxX = MAX(MAX(a_s.x, b_s.x), c_s.x);
         int32_t maxY = MAX(MAX(a_s.y, b_s.y), c_s.y);
 
-        minX = MIN(MAX(minX, 0), r->frameBuffer.size.x);
-        minY = MIN(MAX(minY, 0), r->frameBuffer.size.y);
-        maxX = MIN(MAX(maxX, 0), r->frameBuffer.size.x);
-        maxY = MIN(MAX(maxY, 0), r->frameBuffer.size.y);
+        // Clip bounding box to screen dimensions
+        minX = MIN(MAX(minX, 0), scrSize.x);
+        minY = MIN(MAX(minY, 0), scrSize.y);
+        maxX = MIN(MAX(maxX, 0), scrSize.x);
+        maxY = MIN(MAX(maxY, 0), scrSize.y);
 
-        // Barycentric coordinates at minX/minY corner
-        Vec2i minTriangle = { minX, minY };
+        // Barycentric coordinates
+        Vec2i minTriangle = {minX, minY};
+        int32_t area = orient2d(a_s, b_s, c_s);
+        if (area == 0) continue;
+        float areaInverse = 1.0 / area;
 
-        int32_t area =  orient2d( a_s, b_s, c_s);
-        if (area == 0)
-            continue;
-        float areaInverse = 1.0/area;
+        int32_t A01 = a_s.y - b_s.y;
+        int32_t B01 = b_s.x - a_s.x;
+        int32_t A12 = b_s.y - c_s.y;
+        int32_t B12 = c_s.x - b_s.x;
+        int32_t A20 = c_s.y - a_s.y;
+        int32_t B20 = a_s.x - c_s.x;
 
-        int32_t A01 = ( a_s.y - b_s.y); //Barycentric coordinates steps
-        int32_t B01 = ( b_s.x - a_s.x); //Barycentric coordinates steps
-        int32_t A12 = ( b_s.y - c_s.y); //Barycentric coordinates steps
-        int32_t B12 = ( c_s.x - b_s.x); //Barycentric coordinates steps
-        int32_t A20 = ( c_s.y - a_s.y); //Barycentric coordinates steps
-        int32_t B20 = ( a_s.x - c_s.x); //Barycentric coordinates steps
-
-        int32_t w0_row = orient2d( b_s, c_s, minTriangle);
-        int32_t w1_row = orient2d( c_s, a_s, minTriangle);
-        int32_t w2_row = orient2d( a_s, b_s, minTriangle);
+        int32_t w0_row = orient2d(b_s, c_s, minTriangle);
+        int32_t w1_row = orient2d(c_s, a_s, minTriangle);
+        int32_t w2_row = orient2d(a_s, b_s, minTriangle);
 
         if (o->material != 0) {
             tca.x /= a.z;
@@ -212,53 +219,39 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
             tcc.y /= c.z;
         }
 
-        for (int16_t y = minY; y < maxY; y++, w0_row += B12,w1_row += B20,w2_row += B01) {
+        for (int16_t y = minY; y < maxY; y++, w0_row += B12, w1_row += B20, w2_row += B01) {
             int32_t w0 = w0_row;
             int32_t w1 = w1_row;
             int32_t w2 = w2_row;
 
             for (int32_t x = minX; x < maxX; x++, w0 += A12, w1 += A20, w2 += A01) {
+                if ((w0 | w1 | w2) < 0) continue;
 
-                if ((w0 | w1 | w2) < 0)
-                    continue;
+                float depth = -(w0 * a.z + w1 * b.z + w2 * c.z) * areaInverse;
+                if (depth < 0.0 || depth > 1.0) continue;
 
-                float depth =  -( w0 * a.z + w1 * b.z + w2 * c.z ) * areaInverse;
-                if (depth < 0.0 || depth > 1.0)
-                    continue;
+                if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), x + y * scrSize.x, 1 - depth)) continue;
 
-                if (depth_check(r->backEnd->getZetaBuffer(r,r->backEnd), x + y * scrSize.x, 1-depth ))
-                    continue;
-
-                depth_write(r->backEnd->getZetaBuffer(r,r->backEnd), x + y * scrSize.x, 1- depth );
+                depth_write(r->backEnd->getZetaBuffer(r, r->backEnd), x + y * scrSize.x, 1 - depth);
 
                 if (o->material != 0) {
-                    //Texture lookup
+                    // Texture lookup
+                    float textCoordx = -(w0 * tca.x + w1 * tcb.x + w2 * tcc.x) * areaInverse * depth;
+                    float textCoordy = -(w0 * tca.y + w1 * tcb.y + w2 * tcc.y) * areaInverse * depth;
 
-                    float textCoordx = -(w0 * tca.x + w1 * tcb.x + w2 * tcc.x)* areaInverse * depth;
-                    float textCoordy = -(w0 * tca.y + w1 * tcb.y + w2 * tcc.y)* areaInverse * depth;
-
-                    Pixel text = texture_readF(o->material->texture, (Vec2f){textCoordx,textCoordy});
-#if DEBUG
-                    //show_pixel(textCoordx, textCoordy, text.a, text.b, text.g, text.r);
-#endif
-
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,scrSize.y - y}, text, diffuseLight);
+                    Pixel text = texture_readF(o->material->texture, (Vec2f){textCoordx, textCoordy});
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, scrSize.y - y}, text, diffuseLight);
                 } else {
-                    Pixel pixel;
-                    pixel.a = 255;
-                    pixel.b = 255;
-                    pixel.g = 0;
-                    pixel.r = 255;
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,scrSize.y - y}, pixel, diffuseLight);
+                    Pixel pixel = {255, 255, 0, 255};
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, scrSize.y - y}, pixel, diffuseLight);
                 }
-
             }
-
         }
     }
 
     return 0;
-};
+}
+
 
 int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
