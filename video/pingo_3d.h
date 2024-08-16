@@ -314,10 +314,9 @@ typedef struct tag_Pingo3dControl {
         switch (subcmd) {
             case 1: define_mesh_vertices(); break;
             case 2: set_mesh_vertex_indexes(); break;
-            case 3: define_mesh_texture_coordinates(); break;
-            case 4: set_texture_coordinate_indexes(); break;
+            case 3: define_object_texture_coordinates(); break;
+            case 4: set_object_texture_coordinate_indexes(); break;
             case 5: create_object(); break;
-            case 40: define_object_texture_coordinates(); break;
 
             case 6: set_object_x_scale_factor(); break;
             case 7: set_object_y_scale_factor(); break;
@@ -474,36 +473,7 @@ typedef struct tag_Pingo3dControl {
         }
     }
 
-    // VDU 23, 0, &A0, sid; &49, 3, mid; n; u0; v0; ... :  Define Mesh Texture Coordinates
-    void define_mesh_texture_coordinates() {
-        auto mesh = get_mesh();
-        if (mesh->textCoord) {
-            heap_caps_free(mesh->textCoord);
-            mesh->textCoord = NULL;
-        }
-        auto n = (uint32_t) m_proc->readWord_t();
-        if (n > 0) {
-            auto size = n*sizeof(p3d::Vec2f);
-            mesh->textCoord = (p3d::Vec2f*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto coord = mesh->textCoord;
-            if (!coord) {
-                debug_log("set_mesh_vertex_indexes: failed to allocate %u bytes\n", size);
-                show_free_ram();
-            }
-            debug_log("Reading %u texture coordinates\n", n);
-            for (uint32_t i = 0; i < n; i++) {
-                uint16_t u = m_proc->readWord_t();
-                uint16_t v = m_proc->readWord_t();
-                if (coord) {
-                    coord->x = convert_texture_coordinate_value(u);
-                    coord->y = 1-convert_texture_coordinate_value(v);
-                    coord++;
-                }
-            }
-        }
-    }
-
-    // VDU 23, 0, &A0, sid; &49, 40, oid; n; u0; v0; ... :  Define Object Texture Coordinates
+    // VDU 23, 0, &A0, sid; &49, 3, oid; n; u0; v0; ... :  Define Object Texture Coordinates
     void define_object_texture_coordinates() {
         auto object = get_object();
         if (object->m_object.textCoord) {
@@ -516,7 +486,7 @@ typedef struct tag_Pingo3dControl {
             object->m_object.textCoord = (p3d::Vec2f*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
             auto coord = object->m_object.textCoord;
             if (!coord) {
-                debug_log("set_object_vertex_indexes: failed to allocate %u bytes\n", size);
+                debug_log("set_mesh_vertex_indexes: failed to allocate %u bytes\n", size);
                 show_free_ram();
             }
             debug_log("Reading %u texture coordinates\n", n);
@@ -525,25 +495,26 @@ typedef struct tag_Pingo3dControl {
                 uint16_t v = m_proc->readWord_t();
                 if (coord) {
                     coord->x = convert_texture_coordinate_value(u);
-                    coord->y = convert_texture_coordinate_value(v);
+                    // coord->y = convert_texture_coordinate_value(v);
+                    coord->y = 1 - convert_texture_coordinate_value(v); // uvs are normal cartesian in blender
                     coord++;
                 }
             }
         }
     }
 
-    // VDU 23, 0, &A0, sid; &49, 4, mid; n; i0; ... :  Set Texture Coordinate Indexes
-    void set_texture_coordinate_indexes() {
-        auto mesh = get_mesh();
-        if (mesh->tex_indices) {
-            heap_caps_free(mesh->tex_indices);
-            mesh->tex_indices = NULL;
+    // VDU 23, 0, &A0, sid; &49, 4, mid; n; i0; ... :  Set Object Texture Coordinate Indexes
+    void set_object_texture_coordinate_indexes() {
+        auto object = get_object();
+        if (object->m_object.tex_indices) {
+            heap_caps_free(object->m_object.tex_indices);
+            object->m_object.tex_indices = NULL;
         }
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
             auto size = n*sizeof(uint16_t);
-            mesh->tex_indices = (uint16_t*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto idx = mesh->tex_indices;
+            object->m_object.tex_indices = (uint16_t*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+            auto idx = object->m_object.tex_indices;
             if (!idx) {
                 debug_log("set_texture_coordinate_indexes: failed to allocate %u bytes\n", size);
                 show_free_ram();
@@ -551,9 +522,13 @@ typedef struct tag_Pingo3dControl {
             debug_log("Reading %u texture coordinate indexes\n", n);
             for (uint32_t i = 0; i < n; i++) {
                 uint16_t index = m_proc->readWord_t();
-                if (idx && (i < mesh->indexes_count)) {
-                    *idx++ = index;
-                }
+            // this check isn't strictly necessary, and if it fails we have bigger issues
+            // but if we do it, adding indexes_count to Object is one way to tackle it
+            // however, that requires mods to the Object creation routines and other stuff so why bother?
+                // if (idx && (i < object->m_object.indexes_count)) {
+                //     *idx++ = index;
+                // }
+                *idx++ = index;
                 if (!(i & 0x1F)) debug_log("%u %hu\n", i, index);
             }
         }

@@ -10,6 +10,7 @@ typedef struct Object {
     Mesh * mesh;
     Mat4 transform;
     Material * material;
+    uint16_t * tex_indices;
     Vec2f * textCoord;
 } Object;
 
