@@ -232,7 +232,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
                     Pixel pixel;
                     pixel.a = 255;
                     pixel.b = 255;
-                    pixel.g = 0;
+                    pixel.g = 255;
                     pixel.r = 255;
                     backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, inverted_y}, pixel, diffuseLight);
                 }
