@@ -8,7 +8,6 @@
 #include "scene.h"
 #include "rasterizer.h"
 #include "object.h"
-/*#include "../backend/ttgobackend.h"*/
 
 #if DEBUG
 extern void show_pixel(float x, float y, uint8_t a, uint8_t b, uint8_t g, uint8_t r);
@@ -29,21 +28,6 @@ int renderSprite(Mat4 transform, Renderer * r, Renderable ren) {
     //Apply camera translation
     Mat4 newMat = mat4Translate((Vec3f) { -r->camera.x, -r->camera.y, 0 });
     s->t = mat4MultiplyM( & s->t, & newMat);
-
-    /*
-  if (mat4IsOnlyTranslation(&s->t)) {
-      Vec2i off = {s->t.elements[2], s->t.elements[5]};
-      rasterizer_draw_pixel_perfect(off,r, &s->frame);
-      s->t = backUp;
-      return 0;
-  }
-
-  if (mat4IsOnlyTranslationDoubled(&s->t)) {
-      Vec2i off = {s->t.elements[2], s->t.elements[5]};
-      rasterizer_draw_pixel_perfect_doubled(off,r, &s->frame);
-      s->t = backUp;
-      return 0;
-  }*/
 
     rasterizer_draw_transformed(s->t, r, & s->frame);
     s->t = backUp;
@@ -100,11 +84,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     const Vec2i scrSize = r->frameBuffer.size;
     Object * o = ren.impl;
     Vec2f * tex_coords = o->textCoord;
-    // DEPRECATED since UVs are now defined in the Object object
-    // if (!tex_coords) {
-    //     tex_coords = o->mesh->textCoord;
-    // }
-    // END DEPRECATED
 
     // MODEL MATRIX
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
@@ -122,14 +101,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         Vec2f tcb = {0,0};
         Vec2f tcc = {0,0};
 
-        // DEPRECATED since UVs are now defined in the Object object
-        // if (o->material != 0) {
-        //     tca = tex_coords[o->mesh->tex_indices[i+0]];
-        //     tcb = tex_coords[o->mesh->tex_indices[i+1]];
-        //     tcc = tex_coords[o->mesh->tex_indices[i+2]];
-        // }
-        // END DEPRECATED
-
         if (o->material != 0) {
             tca = tex_coords[o->tex_indices[i+0]];
             tcb = tex_coords[o->tex_indices[i+1]];
@@ -145,15 +116,12 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         c = mat4MultiplyVec4( &c, &m);
 
         float diffuseLight = 1.0; // default to full illumination from all directions
-        if (false) { // set to true for lighting effects at the expense of performance
+        if (true) { // set to true for lighting effects at the expense of performance
             //Calc Face Normal
             Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
             Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
             Vec3f normal = vec3Normalize(vec3Cross(na, nb));
-            // Vec3f light = vec3Normalize((Vec3f){-8,-5,5});
-            // y-axis correction means we can restore the y component sign to the original        
-            // unclear why the z-axis wants to be inverted now though
-            Vec3f light = vec3Normalize((Vec3f){-8,5,-5}); 
+            Vec3f light = vec3Normalize((Vec3f){-8,-5,5});
             diffuseLight = (1.0 + vec3Dot(normal, light)) *0.5;
             diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
         }
@@ -177,13 +145,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         a.x *= a.w; a.y *= a.w; a.z *= a.w;
         b.x *= b.w; b.y *= b.w; b.z *= b.w;
         c.x *= c.w; c.y *= c.w; c.z *= c.w;
-
-        // BEGIN y-axis inversion correction
-        // Flip Y-axis in NDC
-        a.y = -a.y;
-        b.y = -b.y;
-        c.y = -c.y;
-        // END y-axis inversion correction
 
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
         if (clocking >= 0)
@@ -253,29 +214,30 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 
                 depth_write(r->backEnd->getZetaBuffer(r,r->backEnd), x + y * scrSize.x, 1- depth );
 
-                if (o->material != 0) {
-                    //Texture lookup
+                // Invert the y-coordinate for screen space
+                int32_t inverted_y = scrSize.y - y - 1;
 
-                    float textCoordx = -(w0 * tca.x + w1 * tcb.x + w2 * tcc.x)* areaInverse * depth;
-                    float textCoordy = -(w0 * tca.y + w1 * tcb.y + w2 * tcc.y)* areaInverse * depth;
+                if (o->material != 0) {
+                    // Texture lookup
+                    float textCoordx = -(w0 * tca.x + w1 * tcb.x + w2 * tcc.x) * areaInverse * depth;
+                    float textCoordy = -(w0 * tca.y + w1 * tcb.y + w2 * tcc.y) * areaInverse * depth;
 
                     Pixel text = texture_readF(o->material->texture, (Vec2f){textCoordx,textCoordy});
-#if DEBUG
+        #if DEBUG
                     //show_pixel(textCoordx, textCoordy, text.a, text.b, text.g, text.r);
-#endif
+        #endif
 
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,y}, text, diffuseLight);
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, inverted_y}, text, diffuseLight);
                 } else {
                     Pixel pixel;
                     pixel.a = 255;
                     pixel.b = 255;
                     pixel.g = 0;
                     pixel.r = 255;
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x,y}, pixel, diffuseLight);
+                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, inverted_y}, pixel, diffuseLight);
                 }
 
             }
-
         }
     }
 
