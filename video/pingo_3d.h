@@ -793,47 +793,55 @@ typedef struct tag_Pingo3dControl {
         m_camera.m_modified_loc = true;
     }
 
-    // VDU 23, 0, &A0, sid; &49, 42, oid; : Rotate Camera Locally to track a specified object
+    // VDU 23, 0, &A0, sid; &49, 42, oid; : Rotate Camera to track a specified object
     void camera_track_object() {
         auto object = get_object();
-        return; // TODO: Not ready for prime time
         if (object) {
+            // Extract camera position from the camera's transformation matrix (row-major order)
+            p3d::Vec3f camera_position = { 
+                m_camera.m_transform.elements[3],  // x
+                m_camera.m_transform.elements[7],  // y
+                m_camera.m_transform.elements[11]  // z
+            };
+
+            // Extract object position from the object's transformation matrix (row-major order)
+            p3d::Vec3f object_position = { 
+                object->m_transform.elements[3],   // x
+                object->m_transform.elements[7],   // y
+                object->m_transform.elements[11]   // z
+            };
+
             // Calculate the direction vector from the camera to the object
-            // the negations in the y and z components are to account for the
-            // camera's mirroring of the Y axis and Z axis
-            p3d::Vec3f direction_to_object = {
-                object->m_translation.x - m_camera.m_translation.x,
-                -(object->m_translation.y - m_camera.m_translation.y),
-                object->m_translation.z - (-m_camera.m_translation.z)
+            p3d::Vec2f direction_to_object = {
+                object_position.x - camera_position.x,
+                object_position.z - camera_position.z  // Mapping z to y in Vec2f
             };
 
             // Normalize the direction vector
             float length = sqrt(
                 direction_to_object.x * direction_to_object.x +
-                direction_to_object.y * direction_to_object.y +
-                direction_to_object.z * direction_to_object.z
+                direction_to_object.y * direction_to_object.y
             );
-
             if (length > 0) {
                 direction_to_object.x /= length;
                 direction_to_object.y /= length;
-                direction_to_object.z /= length;
             }
 
-            // Get the current forward direction of the camera
-            p3d::Vec3f forward = m_camera.get_forward_direction();
             // Calculate yaw (rotation around the Y axis)
-            float yaw = atan2(direction_to_object.x, -direction_to_object.z);
-            // Calculate pitch (rotation around the X axis)
-            float pitch = atan2(direction_to_object.y, sqrt(direction_to_object.x * direction_to_object.x + direction_to_object.z * direction_to_object.z));
+            float yaw = atan2(direction_to_object.x, -direction_to_object.y);
 
             m_camera.m_rotation.y = yaw;
-            m_camera.m_rotation.x = pitch;
-            m_camera.m_rotation.z = 0; // No roll adjustment
+            m_camera.m_rotation.x = 0;
+            m_camera.m_rotation.z = 0;
             m_camera.m_modified = true;
+
+            // // Debug output
+            // printf("Camera: x=%.2f, y=%.2f, z=%.2f Target: x=%.2f, y=%.2f, z=%.2f Angle: %.2f degrees\n", 
+            //     camera_position.x, camera_position.y, camera_position.z, 
+            //     object_position.x, object_position.y, object_position.z, 
+            //     yaw * (180.0f / M_PI));
         }
     }
-
 
     // VDU 23, 0, &A0, sid; &49, 22, distx; :  Set Camera X Translation Distance
     void set_camera_x_translation_distance() {
