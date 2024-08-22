@@ -4,9 +4,9 @@
 #define		VERSION_MAJOR		2
 #define		VERSION_MINOR		9
 #define		VERSION_PATCH		2
-#define		VERSION_CANDIDATE	0			// Optional
-#define		VERSION_TYPE		"Release"	// RC, Alpha, Beta, etc.
+#define		VERSION_CANDIDATE	5			// Optional
+#define		VERSION_TYPE		"Alpha "	// RC, Alpha, Beta, etc.
 
-#define		VERSION_VARIANT		"Console8"
+#define		VERSION_VARIANT		"Pingo3D BRG"
 
 #endif // VERSION_H
