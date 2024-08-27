@@ -20,7 +20,7 @@ void texture_draw(Texture *f, Vec2i pos, Pixel color)
     f->frameBuffer[pos.x + pos.y * f->size.x] = color;
 }
 
-Pixel texture_read(Texture *f, Vec2i pos)
+Pixel texture_read(const Texture *f, Vec2i pos)
 {
     return f->frameBuffer[pos.x + pos.y * f->size.x];
 }
