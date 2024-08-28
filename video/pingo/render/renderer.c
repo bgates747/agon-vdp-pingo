@@ -111,16 +111,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
         Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
 
-        Vec2f tca = {0,0};
-        Vec2f tcb = {0,0};
-        Vec2f tcc = {0,0};
-
-        if (o->material != 0) {
-            tca = tex_coords[o->tex_indices[i+0]];
-            tcb = tex_coords[o->tex_indices[i+1]];
-            tcc = tex_coords[o->tex_indices[i+2]];
-        }
-
         Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
         Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
         Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
@@ -200,7 +190,15 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         int32_t w1_row = orient2d( c_s, a_s, minTriangle);
         int32_t w2_row = orient2d( a_s, b_s, minTriangle);
 
+        Vec2f tca = {0,0};
+        Vec2f tcb = {0,0};
+        Vec2f tcc = {0,0};
+
         if (o->material != 0) {
+            tca = tex_coords[o->tex_indices[i+0]];
+            tcb = tex_coords[o->tex_indices[i+1]];
+            tcc = tex_coords[o->tex_indices[i+2]];            
+            // Perspective correct texture coordinates
             tca.x /= a.z;
             tca.y /= a.z;
             tcb.x /= b.z;
