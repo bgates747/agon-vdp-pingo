@@ -115,17 +115,9 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         Vec4f b = {ver2->x, ver2->y, ver2->z, 1};
         Vec4f c = {ver3->x, ver3->y, ver3->z, 1};
 
-        // Print original vertex positions
-        // printf("Original vertices:\n");
-        // printf("a: (%f, %f, %f, %f), b: (%f, %f, %f, %f), c: (%f, %f, %f, %f)\n", a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w);
-
         a = mat4MultiplyVec4(&a, &m);
         b = mat4MultiplyVec4(&b, &m);
         c = mat4MultiplyVec4(&c, &m);
-
-        // Print transformed vertex positions (after model matrix multiplication)
-        // printf("After model matrix multiplication:\n");
-        // printf("a: (%f, %f, %f, %f), b: (%f, %f, %f, %f), c: (%f, %f, %f, %f)\n", a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w);
 
         a = mat4MultiplyVec4( &a, &p);
         b = mat4MultiplyVec4( &b, &p);
@@ -140,10 +132,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         persp_divide((Vec3f *)&b);
         persp_divide((Vec3f *)&c);
 
-        // Print vertex positions after perspective divide
-        // printf("After perspective divide:\n");
-        // printf("a: (%f, %f, %f), b: (%f, %f, %f), c: (%f, %f, %f)\n", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
         if (clocking >= 0)
             continue;
@@ -153,15 +141,8 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         to_raster(scrSize, (Vec3f *)&b);
         to_raster(scrSize, (Vec3f *)&c);
 
-        // Print vertex positions after rasterization
-        // printf("After rasterization:\n");
-        // printf("a: (%f, %f, %f), b: (%f, %f, %f), c: (%f, %f, %f)\n", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-
         float bbox[4];
         tri_bbox((Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, bbox);
-
-        // Print bounding box
-        // printf("Bounding box: minX: %f, minY: %f, maxX: %f, maxY: %f\n", bbox[0], bbox[1], bbox[2], bbox[3]);
 
         // Bounding box constraint
         if (bbox[0] > scrSize.x - 1 || bbox[2] < 0 || bbox[1] > scrSize.y - 1 || bbox[3] < 0)
@@ -293,14 +274,7 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 }
 
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r) {
-
-    // printf("x0: %d, y0: %d, x1: %d, y1: %d\n", x0, y0, x1, y1);
-    // printf("p0: (%f, %f, %f), p1: (%f, %f, %f), p2: (%f, %f, %f)\n", p0->x, p0->y, p0->z, p1->x, p1->y, p1->z, p2->x, p2->y, p2->z);
-    // printf("uv0: (%f, %f), uv1: (%f, %f), uv2: (%f, %f)\n", uv0->x, uv0->y, uv1->x, uv1->y, uv2->x, uv2->y);
-    // printf("scrSize: (%d, %d)\n", scrSize.x, scrSize.y);
-
-    float inv_area = 1.0f / edge(p0, p1, p2);  // Precompute the inverse of the area
-    // printf("inv_area: %f\n", inv_area);
+    float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
     pixel.y = y0;
@@ -311,25 +285,15 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
             sample.x = pixel.x + 0.5f;
             sample.y = pixel.y + 0.5f;
 
-            // Print sample positions
-            // printf("scrX: %d, scrY: %d, sample.x: %f, sample.y: %f\n", scrX, scrY, sample.x, sample.y);
-
             float w0 = edge(p1, p2, &sample) * inv_area;
             float w1 = edge(p2, p0, &sample) * inv_area;
             float w2 = edge(p0, p1, &sample) * inv_area;
-
-            // Print barycentric weights
-            // printf("w0: %f, w1: %f, w2: %f\n", w0, w1, w2);
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
                 float one_over_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
                 float z = 1.0f / one_over_z;
 
-                // Print depth value
-                // printf("z: %f, one_over_z: %f\n", z, one_over_z);
-
                 if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, z)) {
-                    // printf("Depth check failed at (scrX: %d, scrY: %d)\n", scrX, scrY);
                     continue;
                 }
 
@@ -340,14 +304,8 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
                 uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
                 uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
 
-                // Print texture coordinates
-                // printf("uv.x: %f, uv.y: %f\n", uv.x, uv.y);
-
                 // Shade the pixel and update the color buffer
                 Pixel color = shade(texture, uv);
-
-                // Print the color values before drawing
-                // printf("Color (r: %u, g: %u, b: %u, a: %u) at (scrX: %d, scrY: %d)\n", color.r, color.g, color.b, color.a, scrX, scrY);
 
                 backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, 1.0f);
             }
