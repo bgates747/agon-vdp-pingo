@@ -13,7 +13,7 @@
 
 #define MIN(a, b)(((a) < (b)) ? (a) : (b))
 #define MAX(a, b)(((a) > (b)) ? (a) : (b))
-#define Z_THRESHOLD -0.01f
+#define Z_THRESHOLD -0.000001f
 
 // FORWARD DECLARATIONS
 static inline void persp_divide(struct Vec3f* p);
