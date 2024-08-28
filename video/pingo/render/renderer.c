@@ -71,7 +71,7 @@ float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
     return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
 }
 
-int orient2d( Vec2i a, Vec2i b, Vec2i c)
+int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
 {
     return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
 }
@@ -84,7 +84,7 @@ void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float 
     }
     else {
         // By default call this
-        texture_draw(f, pos, pixelMul(color, illumination));
+        texture_draw(f, pos, pixelMul(color,illumination));
     }
 }
 
@@ -96,7 +96,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 
     // MODEL MATRIX
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
-    // Mat4 m = o->transform;
 
     // VIEW MATRIX
     Mat4 v = r->camera_view;
@@ -107,18 +106,20 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     mat4ExtractPerspective(&p, &near, &far, &aspect, &fov);
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
-        Vec3f *ver1 = &o->mesh->positions[o->mesh->pos_indices[i + 0]];
-        Vec3f *ver2 = &o->mesh->positions[o->mesh->pos_indices[i + 1]];
-        Vec3f *ver3 = &o->mesh->positions[o->mesh->pos_indices[i + 2]];
+        Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
+        Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
+        Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
 
-        Vec4f a = {ver1->x, ver1->y, ver1->z, 1};
-        Vec4f b = {ver2->x, ver2->y, ver2->z, 1};
-        Vec4f c = {ver3->x, ver3->y, ver3->z, 1};
+        Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
+        Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
+        Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
 
-        a = mat4MultiplyVec4(&a, &m);
-        b = mat4MultiplyVec4(&b, &m);
-        c = mat4MultiplyVec4(&c, &m);
-
+        a = mat4MultiplyVec4( &a, &m);
+        b = mat4MultiplyVec4( &b, &m);
+        c = mat4MultiplyVec4( &c, &m);
+        a = mat4MultiplyVec4( &a, &v);
+        b = mat4MultiplyVec4( &b, &v);
+        c = mat4MultiplyVec4( &c, &v);
         a = mat4MultiplyVec4( &a, &p);
         b = mat4MultiplyVec4( &b, &p);
         c = mat4MultiplyVec4( &c, &p);
@@ -171,7 +172,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     }
 
     return 0;
-}
+};
 
 int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
@@ -195,7 +196,7 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
 int rendererRender(Renderer * r) {
 
     int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
-    memset(r->backEnd->getZetaBuffer(r, r->backEnd), 0, pixels * sizeof (PingoDepth));
+    memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
     r->backEnd->beforeRender(r, r->backEnd);
 
@@ -204,7 +205,7 @@ int rendererRender(Renderer * r) {
 
     //Clear draw buffer before rendering
     if (r->clear) {
-        memset(r->backEnd->getFrameBuffer(r, r->backEnd), 0, pixels * sizeof (Pixel));
+        memset(r->backEnd->getFrameBuffer(r,r->backEnd), 0, pixels * sizeof (Pixel));
     }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
