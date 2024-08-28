@@ -1,5 +1,7 @@
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
+
 #include "renderer.h"
 #include "sprite.h"
 #include "pixel.h"
@@ -8,6 +10,18 @@
 #include "scene.h"
 #include "rasterizer.h"
 #include "object.h"
+
+#define Z_THRESHOLD -0.000001f
+
+// FORWARD DECLARATIONS
+static inline void persp_divide(struct Vec3f* p);
+static inline void to_raster(const Vec2i size, struct Vec3f* const p);
+static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox);
+static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test);
+static Pixel shade(const Texture* texture, Vec2f uv);
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r);
+void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov);
+Pixel rgba2222_to_pixel(uint8_t data);
 
 #if DEBUG
 extern void show_pixel(float x, float y, uint8_t a, uint8_t b, uint8_t g, uint8_t r);
@@ -116,7 +130,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         c = mat4MultiplyVec4( &c, &m);
 
         float diffuseLight = 1.0; // default to full illumination from all directions
-        if (true) { // set to true for lighting effects at the expense of performance
+        if (false) { // set to true for lighting effects at the expense of performance
             //Calc Face Normal
             Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
             Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
@@ -301,3 +315,123 @@ int rendererSetCamera(Renderer * r, Vec4i rect) {
 };
     return 0;
 }
+
+// SCRATCHPIXEL FUNCTIONS
+static inline void persp_divide(struct Vec3f* p) {
+    if (p->z > Z_THRESHOLD) {
+        p->z = Z_THRESHOLD;  // Prevent division by zero
+    }
+    float inv_z = 1.0f / p->z;  // Use the z value directly without flipping sign
+    p->x *= inv_z;  // Normalize x by z
+    p->y *= inv_z;  // Normalize y by z
+}
+
+static inline void to_raster(const Vec2i size, struct Vec3f* const p) {
+    p->x = (p->x + 1) * 0.5f * (float)size.x;
+    p->y = (1 - p->y) * 0.5f * (float)size.y;
+}
+
+static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox) {
+    bbox[0] = MIN(MIN(p0->x, p1->x), p2->x);
+    bbox[1] = MIN(MIN(p0->y, p1->y), p2->y);
+    bbox[2] = MAX(MAX(p0->x, p1->x), p2->x);
+    bbox[3] = MAX(MAX(p0->y, p1->y), p2->y);
+}
+
+static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test) {
+    return (test->x - a->x) * (b->y - a->y) - (test->y - a->y) * (b->x - a->x);
+}
+
+static Pixel shade(const Texture* texture, Vec2f uv) {
+    if (texture->frameBuffer != NULL) {
+        float u = uv.x;
+        float v = uv.y;
+
+        // Convert normalized coordinates to texel coordinates
+        Vec2i texel;
+		texel.x = (int)MIN(u * texture->size.x, texture->size.x - 1);
+		texel.y = (int)MIN(v * texture->size.y, texture->size.y - 1);
+
+        // Get the color from the texture at the texel position
+        // return texture->frameBuffer[texel.y * texture->size.x + texel.x];
+        return texture_read(texture, texel);
+    }
+}
+
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r) {
+    float inv_area = 1.0f / edge(p0, p1, p2);
+
+    Vec3f pixel, sample;
+    pixel.y = y0;
+
+    for (int scrY = y0, row = y0 * scrSize.x; scrY <= y1; ++scrY, pixel.y += 1, row += scrSize.x) {
+        pixel.x = x0;
+        for (int scrX = x0, index = row + x0; scrX <= x1; ++scrX, pixel.x += 1, ++index) {
+            sample.x = pixel.x + 0.5f;
+            sample.y = pixel.y + 0.5f;
+
+            float w0 = edge(p1, p2, &sample) * inv_area;
+            float w1 = edge(p2, p0, &sample) * inv_area;
+            float w2 = edge(p0, p1, &sample) * inv_area;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                float one_over_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
+                float z = 1.0f / one_over_z;
+
+                if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, z)) {
+                    continue;
+                }
+
+                depth_write(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, z);
+
+                // Interpolate the texture coordinates
+                Vec2f uv;
+                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
+                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
+
+                // Shade the pixel and update the color buffer
+                Pixel color = shade(texture, uv);
+
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, 1.0f);
+            }
+        }
+    }
+}
+
+// FUNCTIONS BELOW ARE NOT FROM SCRATCHPIXEL 
+// BUT WE PUT THEM HERE BECAUSE THEY'RE NOT PINGO EITHER
+void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov) {
+    // Extract the relevant elements from the matrix
+    float w = m->elements[0];  // Element at (0, 0)
+    float h = m->elements[5];  // Element at (1, 1)
+    float a = m->elements[10]; // Element at (2, 2)
+    float b = m->elements[14]; // Element at (2, 3)
+
+    // Calculate the aspect ratio and field of view
+    *aspect = w / h;
+    *fov = 2.0 * atan(1.0 / h);
+
+    // Calculate the near and far planes
+    *far = b / (a + 1.0);
+    *near = b / (a - 1.0);
+}
+
+// Decode the rgba2222 pixel format
+Pixel rgba2222_to_pixel(uint8_t data) {
+    uint8_t a = (data >> 6) & 0b11;
+    uint8_t b = (data >> 4) & 0b11;
+    uint8_t g = (data >> 2) & 0b11;
+    uint8_t r = data & 0b11;
+
+    // Map the 2-bit values to 8-bit color values
+    static const uint8_t mapping[4] = {0, 85, 170, 255};
+
+    Pixel pixel;
+    pixel.r = mapping[r];
+    pixel.g = mapping[g];
+    pixel.b = mapping[b];
+    pixel.a = mapping[a];
+
+    return pixel;
+}
+
