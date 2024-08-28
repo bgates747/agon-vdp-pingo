@@ -101,6 +101,14 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     Mat4 v = r->camera_view;
     Mat4 p = r->camera_projection;
 
+    // CAMERA NORMAL
+    Vec3f cameraNormal = { 
+        v.elements[2],  // forward.x
+        v.elements[6],  // forward.y
+        v.elements[10]  // forward.z
+    };
+    cameraNormal = vec3Normalize(cameraNormal);
+
     // get the camera attributes back out of its projection matrix
     float near, far, aspect, fov;
     mat4ExtractPerspective(&p, &near, &far, &aspect, &fov);
@@ -117,6 +125,23 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         a = mat4MultiplyVec4( &a, &m);
         b = mat4MultiplyVec4( &b, &m);
         c = mat4MultiplyVec4( &c, &m);
+        // FACE NORMAL
+        Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
+        Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
+        Vec3f cameraNormal = vec3Normalize(vec3Cross(na, nb));
+
+        // Cull triangles facing away from camera
+        float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
+        if (faceCamDot < 0)
+            continue;
+
+        float diffuseLight = 1.0; // default to full illumination from all directions
+        if (false) { // set to true for lighting effects at the expense of performance
+            Vec3f light = vec3Normalize((Vec3f){-3,8,5});
+            diffuseLight = (1.0 + vec3Dot(cameraNormal, light)) *0.5;
+            diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
+        }
+
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
         c = mat4MultiplyVec4( &c, &v);
@@ -128,7 +153,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         if (a.z > -near && b.z > -near && c.z > -near)
             continue;
 
-        // Perspective divide
+        // CORRECTED: convert to device coordinates by perspective division
         persp_divide((Vec3f *)&a);
         persp_divide((Vec3f *)&b);
         persp_divide((Vec3f *)&c);
