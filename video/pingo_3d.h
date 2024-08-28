@@ -1106,7 +1106,7 @@ typedef struct tag_Pingo3dControl {
         auto stop = millis();
         auto diff = stop - start;
         float fps = 1000.0 / diff;
-        // printf("Render to %ux%u took %u ms (%.2f FPS)\n", m_width, m_height, diff, fps);
+        printf("Render to %ux%u took %u ms (%.2f FPS)\n", m_width, m_height, diff, fps);
         //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
         //debug_log("Final data:  %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
     }
