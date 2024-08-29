@@ -2,11 +2,13 @@
 
 #ifdef ZBUFFER32
 void depth_write (PingoDepth * d, int idx, float value) {
-    d[idx].d = (uint32_t)(value * (float)UINT32_MAX);
+    // d[idx].d = (uint32_t)(value * (float)UINT32_MAX);
+    d[idx].d = value;
 }
 
 bool depth_check(PingoDepth * d, int idx, float value){
-    return (uint32_t)(value * (float)UINT32_MAX) < d[idx].d;
+    // return (uint32_t)(value * (float)UINT32_MAX) < d[idx].d;
+    return value < d[idx].d;
 }
 #endif
 
