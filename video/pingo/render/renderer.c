@@ -11,7 +11,9 @@
 #include "rasterizer.h"
 #include "object.h"
 
-#define Z_THRESHOLD -0.000001f
+#define MIN(a, b)(((a) < (b)) ? (a) : (b))
+#define MAX(a, b)(((a) > (b)) ? (a) : (b))
+#define Z_THRESHOLD 0.000001f
 
 // FORWARD DECLARATIONS
 static inline void persp_divide(struct Vec3f* p);
@@ -19,7 +21,7 @@ static inline void to_raster(const Vec2i size, struct Vec3f* const p);
 static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox);
 static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test);
 static Pixel shade(const Texture* texture, Vec2f uv);
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r);
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near);
 void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov);
 Pixel rgba2222_to_pixel(uint8_t data);
 
@@ -65,13 +67,6 @@ int renderScene(Mat4 transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-#define MIN(a, b)(((a) < (b)) ? (a) : (b))
-#define MAX(a, b)(((a) > (b)) ? (a) : (b))
-
-int edgeFunction(const Vec2f * a, const Vec2f * b, const Vec2f * c) {
-    return (c->x - a->x) * (b->y - a->y) - (c->y - a->y) * (b->x - a->x);
-}
-
 float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
     return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
 }
@@ -114,6 +109,10 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     };
     cameraNormal = vec3Normalize(cameraNormal);
 
+    // get the camera attributes back out of its projection matrix
+    float near, far, aspect, fov;
+    mat4ExtractPerspective(&p, &near, &far, &aspect, &fov); // TODO: this gives -2499.840576 as the near value, which should be 1.0
+
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
         Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
@@ -127,22 +126,23 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         b = mat4MultiplyVec4( &b, &m);
         c = mat4MultiplyVec4( &c, &m);
 
-        // FACE NORMAL
-        Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        Vec3f cameraNormal = vec3Normalize(vec3Cross(na, nb));
+        // // TODO: camera normals seem b0rked. Face normals are fine. Until we fix both, we'll skipp all this.
+        // // FACE NORMAL
+        // Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
+        // Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
+        // Vec3f cameraNormal = vec3Normalize(vec3Cross(na, nb));
 
-        // Cull triangles facing away from camera
-        float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
-        if (faceCamDot < 0)
-            continue;
+        // // Cull triangles facing away from camera
+        // float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
+        // if (faceCamDot < 0)
+        //     continue;
 
-        float diffuseLight = 1.0; // default to full illumination from all directions
-        if (false) { // set to true for lighting effects at the expense of performance
-            Vec3f light = vec3Normalize((Vec3f){-3,8,5});
-            diffuseLight = (1.0 + vec3Dot(cameraNormal, light)) *0.5;
-            diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
-        }
+        // float diffuseLight = 1.0; // default to full illumination from all directions
+        // if (false) { // set to true for lighting effects at the expense of performance
+        //     Vec3f light = vec3Normalize((Vec3f){-3,8,5});
+        //     diffuseLight = (1.0 + vec3Dot(cameraNormal, light)) *0.5;
+        //     diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
+        // }
 
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
@@ -152,123 +152,111 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         b = mat4MultiplyVec4( &b, &p);
         c = mat4MultiplyVec4( &c, &p);
 
-        //Triangle is completely behind camera
-        if (a.z > 0 && b.z > 0 && c.z > 0)
-           continue;
+        // TODO: until we get the correct near value we hardcode this to -1.0.
+        if (a.z > -1.0f && b.z > -1.0f && c.z > -1.0f)
+            continue;
 
-        // convert to device coordinates by perspective division
-        a.w = 1.0 / a.w;
-        b.w = 1.0 / b.w;
-        c.w = 1.0 / c.w;
-        a.x *= a.w; a.y *= a.w; a.z *= a.w;
-        b.x *= b.w; b.y *= b.w; b.z *= b.w;
-        c.x *= c.w; c.y *= c.w; c.z *= c.w;
+        // CORRECTED: convert to device coordinates by perspective division
+        persp_divide((Vec3f *)&a);
+        persp_divide((Vec3f *)&b);
+        persp_divide((Vec3f *)&c);
 
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
         if (clocking >= 0)
             continue;
 
-        //Compute Screen coordinates
-        float halfX = scrSize.x/2;
-        float halfY = scrSize.y/2;
-        Vec2i a_s = {a.x * halfX + halfX,  a.y * halfY + halfY};
-        Vec2i b_s = {b.x * halfX + halfX,  b.y * halfY + halfY};
-        Vec2i c_s = {c.x * halfX + halfX,  c.y * halfY + halfY};
+        // Convert to raster space
+        to_raster(scrSize, (Vec3f *)&a);
+        to_raster(scrSize, (Vec3f *)&b);
+        to_raster(scrSize, (Vec3f *)&c);
 
-        int32_t minX = MIN(MIN(a_s.x, b_s.x), c_s.x);
-        int32_t minY = MIN(MIN(a_s.y, b_s.y), c_s.y);
-        int32_t maxX = MAX(MAX(a_s.x, b_s.x), c_s.x);
-        int32_t maxY = MAX(MAX(a_s.y, b_s.y), c_s.y);
+        float bbox[4];
+        tri_bbox((Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, bbox);
 
-        minX = MIN(MAX(minX, 0), r->frameBuffer.size.x);
-        minY = MIN(MAX(minY, 0), r->frameBuffer.size.y);
-        maxX = MIN(MAX(maxX, 0), r->frameBuffer.size.x);
-        maxY = MIN(MAX(maxY, 0), r->frameBuffer.size.y);
-
-        // Barycentric coordinates at minX/minY corner
-        Vec2i minTriangle = { minX, minY };
-
-        int32_t area =  orient2d( a_s, b_s, c_s);
-        if (area == 0)
+        // Bounding box constraint
+        if (bbox[0] > scrSize.x - 1 || bbox[2] < 0 || bbox[1] > scrSize.y - 1 || bbox[3] < 0)
             continue;
-        float areaInverse = 1.0/area;
 
-        int32_t A01 = ( a_s.y - b_s.y); //Barycentric coordinates steps
-        int32_t B01 = ( b_s.x - a_s.x); //Barycentric coordinates steps
-        int32_t A12 = ( b_s.y - c_s.y); //Barycentric coordinates steps
-        int32_t B12 = ( c_s.x - b_s.x); //Barycentric coordinates steps
-        int32_t A20 = ( c_s.y - a_s.y); //Barycentric coordinates steps
-        int32_t B20 = ( a_s.x - c_s.x); //Barycentric coordinates steps
+        int x0 = MAX(0, (int)bbox[0]);
+        int y0 = MAX(0, (int)bbox[1]);
+        int x1 = MIN(scrSize.x - 1, (int)bbox[2]);
+        int y1 = MIN(scrSize.y - 1, (int)bbox[3]);
 
-        int32_t w0_row = orient2d( b_s, c_s, minTriangle);
-        int32_t w1_row = orient2d( c_s, a_s, minTriangle);
-        int32_t w2_row = orient2d( a_s, b_s, minTriangle);
+        Vec2f tca = tex_coords[o->tex_indices[i + 0]];
+        Vec2f tcb = tex_coords[o->tex_indices[i + 1]];
+        Vec2f tcc = tex_coords[o->tex_indices[i + 2]];
 
-        Vec2f tca = {0,0};
-        Vec2f tcb = {0,0};
-        Vec2f tcc = {0,0};
+        // Perspective correct texture coordinates
+        tca.x /= a.z;
+        tca.y /= a.z;
+        tcb.x /= b.z;
+        tcb.y /= b.z;
+        tcc.x /= c.z;
+        tcc.y /= c.z;
 
-        if (o->material != 0) {
-            tca = tex_coords[o->tex_indices[i+0]];
-            tcb = tex_coords[o->tex_indices[i+1]];
-            tcc = tex_coords[o->tex_indices[i+2]];            
-            // Perspective correct texture coordinates
-            tca.x /= a.z;
-            tca.y /= a.z;
-            tcb.x /= b.z;
-            tcb.y /= b.z;
-            tcc.x /= c.z;
-            tcc.y /= c.z;
-        }
+        // Rasterize the triangle with the new logic
+        rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near);
 
-        for (int16_t y = minY; y < maxY; y++, w0_row += B12,w1_row += B20,w2_row += B01) {
-            int32_t w0 = w0_row;
-            int32_t w1 = w1_row;
-            int32_t w2 = w2_row;
-
-            for (int32_t x = minX; x < maxX; x++, w0 += A12, w1 += A20, w2 += A01) {
-
-                if ((w0 | w1 | w2) < 0)
-                    continue;
-
-                float depth =  -( w0 * a.z + w1 * b.z + w2 * c.z ) * areaInverse;
-                if (depth < 0.0 || depth > 1.0)
-                    continue;
-
-                if (depth_check(r->backEnd->getZetaBuffer(r,r->backEnd), x + y * scrSize.x, 1-depth ))
-                    continue;
-
-                depth_write(r->backEnd->getZetaBuffer(r,r->backEnd), x + y * scrSize.x, 1- depth );
-
-                // Invert the y-coordinate for screen space
-                int32_t inverted_y = scrSize.y - y - 1;
-
-                if (o->material != 0) {
-                    // Texture lookup
-                    float textCoordx = -(w0 * tca.x + w1 * tcb.x + w2 * tcc.x) * areaInverse * depth;
-                    float textCoordy = -(w0 * tca.y + w1 * tcb.y + w2 * tcc.y) * areaInverse * depth;
-
-                    Pixel text = texture_readF(o->material->texture, (Vec2f){textCoordx,textCoordy});
-        #if DEBUG
-                    //show_pixel(textCoordx, textCoordy, text.a, text.b, text.g, text.r);
-        #endif
-
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, inverted_y}, text, diffuseLight);
-                } else {
-                    Pixel pixel;
-                    pixel.a = 255;
-                    pixel.b = 255;
-                    pixel.g = 255;
-                    pixel.r = 255;
-                    backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, inverted_y}, pixel, diffuseLight);
-                }
-
-            }
-        }
     }
 
     return 0;
 };
+
+
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near) {
+    float inv_area = 1.0f / edge(p0, p1, p2);
+
+    Vec3f pixel, sample;
+    pixel.y = y0;
+
+    // float minz = INFINITY;
+    // float maxz = -INFINITY;
+
+    for (int scrY = y0, row = y0 * scrSize.x; scrY <= y1; ++scrY, pixel.y += 1, row += scrSize.x) {
+        pixel.x = x0;
+        for (int scrX = x0, index = row + x0; scrX <= x1; ++scrX, pixel.x += 1, ++index) {
+            sample.x = pixel.x + 0.5f;
+            sample.y = pixel.y + 0.5f;
+
+            float w0 = edge(p1, p2, &sample) * inv_area;
+            float w1 = edge(p2, p0, &sample) * inv_area;
+            float w2 = edge(p0, p1, &sample) * inv_area;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
+                if (inv_z < -1.0f) { // TODO: eventually we want this to be the near clipping plane once we fix getting it from the projection matrix
+                    continue;
+                }
+                float z = 1.0f / inv_z;
+
+                // float z_buff = -inv_z;
+                // if (z_buff < minz) {
+                //     minz = z_buff;
+                // }
+                // if (z_buff > maxz) {
+                //     maxz = z_buff;
+                // }
+
+                if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, -inv_z)) {
+                    continue;
+                }
+
+                depth_write(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, -inv_z);
+
+                // Interpolate the texture coordinates
+                Vec2f uv;
+                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
+                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
+
+                // Shade the pixel and update the color buffer
+                Pixel color = shade(texture, uv);
+
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, 1.0f);
+            }
+        }
+    }
+    // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
+}
 
 int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
@@ -330,12 +318,12 @@ int rendererSetCamera(Renderer * r, Vec4i rect) {
 
 // SCRATCHPIXEL FUNCTIONS
 static inline void persp_divide(struct Vec3f* p) {
-    if (p->z > Z_THRESHOLD) {
-        p->z = Z_THRESHOLD;  // Prevent division by zero
+    if (p->z > -Z_THRESHOLD) {
+        p->z = -Z_THRESHOLD;
     }
-    float inv_z = 1.0f / p->z;  // Use the z value directly without flipping sign
-    p->x *= inv_z;  // Normalize x by z
-    p->y *= inv_z;  // Normalize y by z
+    float inv_z = -1.0f / p->z;
+    p->x *= inv_z;
+    p->y *= inv_z;
 }
 
 static inline void to_raster(const Vec2i size, struct Vec3f* const p) {
@@ -367,46 +355,6 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
         // Get the color from the texture at the texel position
         // return texture->frameBuffer[texel.y * texture->size.x + texel.x];
         return texture_read(texture, texel);
-    }
-}
-
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r) {
-    float inv_area = 1.0f / edge(p0, p1, p2);
-
-    Vec3f pixel, sample;
-    pixel.y = y0;
-
-    for (int scrY = y0, row = y0 * scrSize.x; scrY <= y1; ++scrY, pixel.y += 1, row += scrSize.x) {
-        pixel.x = x0;
-        for (int scrX = x0, index = row + x0; scrX <= x1; ++scrX, pixel.x += 1, ++index) {
-            sample.x = pixel.x + 0.5f;
-            sample.y = pixel.y + 0.5f;
-
-            float w0 = edge(p1, p2, &sample) * inv_area;
-            float w1 = edge(p2, p0, &sample) * inv_area;
-            float w2 = edge(p0, p1, &sample) * inv_area;
-
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
-                float one_over_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
-                float z = 1.0f / one_over_z;
-
-                if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, z)) {
-                    continue;
-                }
-
-                depth_write(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, z);
-
-                // Interpolate the texture coordinates
-                Vec2f uv;
-                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
-                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
-
-                // Shade the pixel and update the color buffer
-                Pixel color = shade(texture, uv);
-
-                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, 1.0f);
-            }
-        }
     }
 }
 

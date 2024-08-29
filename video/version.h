@@ -7,6 +7,6 @@
 #define		VERSION_CANDIDATE	6			// Optional
 #define		VERSION_TYPE		"Alpha "	// RC, Alpha, Beta, etc.
 
-#define		VERSION_VARIANT		"Pingo3D BRG"
+#define		VERSION_VARIANT		"ScratchPingo "
 
 #endif // VERSION_H
