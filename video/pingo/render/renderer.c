@@ -319,11 +319,11 @@ int rendererSetCamera(Renderer * r, Vec4i rect) {
 // SCRATCHPIXEL FUNCTIONS
 static inline void persp_divide(struct Vec3f* p) {
     if (p->z > -Z_THRESHOLD) {
-        p->z = -Z_THRESHOLD;  // Prevent division by zero
+        p->z = -Z_THRESHOLD;
     }
-    float inv_z = 1.0f / p->z;  // Use the z value directly without flipping sign
-    p->x *= inv_z;  // Normalize x by z
-    p->y *= inv_z;  // Normalize y by z
+    float inv_z = -1.0f / p->z;
+    p->x *= inv_z;
+    p->y *= inv_z;
 }
 
 static inline void to_raster(const Vec2i size, struct Vec3f* const p) {
