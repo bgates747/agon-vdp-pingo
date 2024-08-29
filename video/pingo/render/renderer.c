@@ -15,16 +15,6 @@
 #define MAX(a, b)(((a) > (b)) ? (a) : (b))
 #define Z_THRESHOLD 0.000001f
 
-// FORWARD DECLARATIONS
-static inline void persp_divide(struct Vec3f* p);
-static inline void to_raster(const Vec2i size, struct Vec3f* const p);
-static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox);
-static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test);
-static Pixel shade(const Texture* texture, Vec2f uv);
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near);
-void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov);
-Pixel rgba2222_to_pixel(uint8_t data);
-
 #if DEBUG
 extern void show_pixel(float x, float y, uint8_t a, uint8_t b, uint8_t g, uint8_t r);
 #endif
@@ -110,8 +100,9 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     cameraNormal = vec3Normalize(cameraNormal);
 
     // get the camera attributes back out of its projection matrix
-    float near, far, aspect, fov;
-    mat4ExtractPerspective(&p, &near, &far, &aspect, &fov); // TODO: this gives -2499.840576 as the near value, which should be 1.0
+    // float near, far, aspect, fov;
+    // mat4ExtractPerspective(&p, &near, &far, &aspect, &fov); // TODO: this gives -2499.840576 as the near value
+    float near = 1.0f; // hardcode until we get the correct near value from the camera
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
@@ -126,23 +117,23 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         b = mat4MultiplyVec4( &b, &m);
         c = mat4MultiplyVec4( &c, &m);
 
-        // // TODO: camera normals seem b0rked. Face normals are fine. Until we fix both, we'll skipp all this.
-        // // FACE NORMAL
-        // Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        // Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        // Vec3f cameraNormal = vec3Normalize(vec3Cross(na, nb));
+        // TODO: convert this to look up normals from the mesh
+        // FACE NORMAL
+        Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
+        Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
+        Vec3f faceNormal = vec3Normalize(vec3Cross(na, nb));
 
-        // // Cull triangles facing away from camera
-        // float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
-        // if (faceCamDot < 0)
-        //     continue;
+        // Cull triangles facing away from camera
+        float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
+        if (faceCamDot < 0)
+            continue;
 
-        // float diffuseLight = 1.0; // default to full illumination from all directions
-        // if (false) { // set to true for lighting effects at the expense of performance
-        //     Vec3f light = vec3Normalize((Vec3f){-3,8,5});
-        //     diffuseLight = (1.0 + vec3Dot(cameraNormal, light)) *0.5;
-        //     diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
-        // }
+        float diffuseLight = 1.0; // default to full illumination from all directions
+        if (true) { // set to true for lighting effects at the expense of performance
+            Vec3f light = vec3Normalize((Vec3f){-3,8,5});
+            diffuseLight = (1.0 + vec3Dot(faceNormal, light)) *0.5;
+            diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
+        }
 
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
@@ -152,15 +143,18 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         b = mat4MultiplyVec4( &b, &p);
         c = mat4MultiplyVec4( &c, &p);
 
-        // TODO: until we get the correct near value we hardcode this to -1.0.
-        if (a.z > -1.0f && b.z > -1.0f && c.z > -1.0f)
+        // Don't render triangles completely behind the near clipping plane
+        if (a.z > -near && b.z > -near && c.z > -near)
             continue;
 
-        // CORRECTED: convert to device coordinates by perspective division
+        // CORRECTED WITH SCRATCHPIXEL: 
+        // convert to device coordinates by perspective division
         persp_divide((Vec3f *)&a);
         persp_divide((Vec3f *)&b);
         persp_divide((Vec3f *)&c);
 
+        // TODO: review this logic as face normals may obviate the need for this
+        // and indeed be the better option to control exactly what faces are rendered
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
         if (clocking >= 0)
             continue;
@@ -194,8 +188,8 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         tcc.x /= c.z;
         tcc.y /= c.z;
 
-        // Rasterize the triangle with the new logic
-        rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near);
+        // Rasterize the triangle with the new scratchpixel logic
+        rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near, diffuseLight);
 
     }
 
@@ -203,14 +197,11 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 };
 
 
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near) {
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
     float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
     pixel.y = y0;
-
-    // float minz = INFINITY;
-    // float maxz = -INFINITY;
 
     for (int scrY = y0, row = y0 * scrSize.x; scrY <= y1; ++scrY, pixel.y += 1, row += scrSize.x) {
         pixel.x = x0;
@@ -224,18 +215,10 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
                 float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
-                if (inv_z < -1.0f) { // TODO: eventually we want this to be the near clipping plane once we fix getting it from the projection matrix
+                if (inv_z < -near) {
                     continue;
                 }
                 float z = 1.0f / inv_z;
-
-                // float z_buff = -inv_z;
-                // if (z_buff < minz) {
-                //     minz = z_buff;
-                // }
-                // if (z_buff > maxz) {
-                //     maxz = z_buff;
-                // }
 
                 if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, -inv_z)) {
                     continue;
@@ -251,7 +234,7 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
                 // Shade the pixel and update the color buffer
                 Pixel color = shade(texture, uv);
 
-                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, 1.0f);
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
             }
         }
     }
@@ -317,6 +300,7 @@ int rendererSetCamera(Renderer * r, Vec4i rect) {
 }
 
 // SCRATCHPIXEL FUNCTIONS
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
 static inline void persp_divide(struct Vec3f* p) {
     if (p->z > -Z_THRESHOLD) {
         p->z = -Z_THRESHOLD;
@@ -353,13 +337,13 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 		texel.y = (int)MIN(v * texture->size.y, texture->size.y - 1);
 
         // Get the color from the texture at the texel position
-        // return texture->frameBuffer[texel.y * texture->size.x + texel.x];
         return texture_read(texture, texel);
     }
 }
 
 // FUNCTIONS BELOW ARE NOT FROM SCRATCHPIXEL 
 // BUT WE PUT THEM HERE BECAUSE THEY'RE NOT PINGO EITHER
+// TODO: THIS IS RETURNING GARBAGE VALUES
 void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov) {
     // Extract the relevant elements from the matrix
     float w = m->elements[0];  // Element at (0, 0)
