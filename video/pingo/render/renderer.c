@@ -196,7 +196,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
     float inv_area = 1.0f / edge(p0, p1, p2);
 
@@ -209,6 +208,7 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
             sample.x = pixel.x + 0.5f;
             sample.y = pixel.y + 0.5f;
 
+            // Barycentric coordinates for pixel coverage
             float w0 = edge(p1, p2, &sample) * inv_area;
             float w1 = edge(p2, p0, &sample) * inv_area;
             float w2 = edge(p0, p1, &sample) * inv_area;
@@ -234,11 +234,11 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
                 // Shade the pixel and update the color buffer
                 Pixel color = shade(texture, uv);
 
-                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
+                // backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
+
             }
         }
     }
-    // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
 }
 
 int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
@@ -299,6 +299,15 @@ int rendererSetCamera(Renderer * r, Vec4i rect) {
     return 0;
 }
 
+// NEW FUNCTIONS
+void straight_to_canvas(Pixel p, int x, int y) {
+    uint8_t r = p.r;
+    uint8_t g = p.g;
+    uint8_t b = p.b;
+    // RGB888 color(r, g, b);
+    // canvas->setPixel(x, y, color);
+}
+
 // SCRATCHPIXEL FUNCTIONS
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
 static inline void persp_divide(struct Vec3f* p) {
@@ -343,6 +352,49 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 
 // FUNCTIONS BELOW ARE NOT FROM SCRATCHPIXEL 
 // BUT WE PUT THEM HERE BECAUSE THEY'RE NOT PINGO EITHER
+
+// Helper function to find intersection of a line segment with the screen bounds
+static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out) {
+    // Check if the edge is horizontal (skip as no intersection along the scanline)
+    if (v0->y == v1->y) return 0;
+
+    // Calculate intersection x-coordinate of the line segment with the horizontal line y
+    float t = (y - v0->y) / (v1->y - v0->y);
+    if (t < 0 || t > 1) return 0; // Intersection not within the segment
+
+    out->x = v0->x + t * (v1->x - v0->x);
+    out->y = y;
+    return 1; // Valid intersection found
+}
+
+// Function to find scanline intersections for triangle edges
+static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const Vec3f* p2, int scanline_y, Vec2f* out_intersections, int* count) {
+    // Initialize intersection count
+    *count = 0;
+    
+    // Check intersection with the first edge (p0-p1)
+    if (clip_edge((float)scanline_y, p0, p1, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Check intersection with the second edge (p1-p2)
+    if (clip_edge((float)scanline_y, p1, p2, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Check intersection with the third edge (p2-p0)
+    if (*count < 2 && clip_edge((float)scanline_y, p2, p0, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Sort intersections by x-coordinate if two valid intersections are found
+    if (*count == 2 && out_intersections[0].x > out_intersections[1].x) {
+        Vec2f temp = out_intersections[0];
+        out_intersections[0] = out_intersections[1];
+        out_intersections[1] = temp;
+    }
+}
+
 // TODO: THIS IS RETURNING GARBAGE VALUES
 void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov) {
     // Extract the relevant elements from the matrix

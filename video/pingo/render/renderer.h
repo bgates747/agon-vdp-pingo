@@ -20,7 +20,6 @@ typedef struct tag_Renderer{
     Mat4 camera_view;
 
     BackEnd * backEnd;
-
 } Renderer;
 
 extern int rendererRender(Renderer *);
@@ -31,8 +30,13 @@ extern int rendererSetScene(Renderer *r, Scene *s);
 
 extern int rendererSetCamera(Renderer *r, Vec4i camera);
 
+// NEW FUNCTIONS
+void straight_to_canvas(Pixel p, int width, int height);
+
 // SCRATCHPIXEL FUNCTIONS
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
+static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out);
+static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const Vec3f* p2, int scanline_y, Vec2f* out_intersections, int* count);
 static inline void persp_divide(struct Vec3f* p);
 static inline void to_raster(const Vec2i size, struct Vec3f* const p);
 static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox);

@@ -255,7 +255,6 @@ typedef struct tag_Pingo3dControl {
     std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
     std::map<uint16_t, TexObject>* m_objects;   // Map of textured objects that use meshes and have transforms
     uint8_t             m_dither_type;      // Dithering type and options to be applied to rendered bitmap
-
     void show_free_ram() {
         debug_log("Free PSRAM: %u\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     }
@@ -1085,23 +1084,25 @@ typedef struct tag_Pingo3dControl {
 
         rendererRender(&renderer);
 
-        // Apply dithering to the rendered image before copying to the destination bitmap
-        switch (m_dither_type) {
-            case 0:
-                break; // no dithering applied
-            case 1:
-                dither_bayer((uint8_t*)m_frame, m_width, m_height);
-                break;
-            case 2:
-                dither_floyd_steinberg((uint8_t*)m_frame, m_width, m_height);
-                break;
-            default:
-                m_dither_type = 0; // no dithering applied
-                debug_log("Invalid dithering type %u\n", m_dither_type);
-                break;
-        }
+        // DITHERING NOT POSSIBLE WHEN RENDERING STRAIGHT TO CANVAS
+        // // Apply dithering to the rendered image before copying to the destination bitmap
+        // switch (m_dither_type) {
+        //     case 0:
+        //         break; // no dithering applied
+        //     case 1:
+        //         dither_bayer((uint8_t*)m_frame, m_width, m_height);
+        //         break;
+        //     case 2:
+        //         dither_floyd_steinberg((uint8_t*)m_frame, m_width, m_height);
+        //         break;
+        //     default:
+        //         m_dither_type = 0; // no dithering applied
+        //         debug_log("Invalid dithering type %u\n", m_dither_type);
+        //         break;
+        // }
 
-        memcpy(dst_pix, m_frame, sizeof(p3d::Pixel) * m_width * m_height);
+        // memcpy(dst_pix, m_frame, sizeof(p3d::Pixel) * m_width * m_height);
+        // straight_to_canvas((uint8_t*)m_frame, m_width, m_height);
 
         auto stop = millis();
         auto diff = stop - start;
@@ -1111,86 +1112,100 @@ typedef struct tag_Pingo3dControl {
         //debug_log("Final data:  %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
     }
 
+    // HERE FOR TESTING PURPOSES ONLY, renderer normally handles this
+    // void straight_to_canvas(uint8_t* rgba, int width, int height) {
+    //     for (int x = 0; x < width; x++) {
+    //         for (int y = 0; y < height; y++) {
+    //             uint8_t* pixel = &rgba[(y * width + x) * 4];
+    //             uint8_t r = pixel[0];
+    //             uint8_t g = pixel[1];
+    //             uint8_t b = pixel[2];
+    //             RGB888 color(r, g, b);
+    //             canvas->setPixel(x, y, color);
+    //         }
+    //     }
+    // }
 
-    void dither_bayer(uint8_t* rgba, int width, int height) {
-        static const uint8_t bayer[4][4] = {
-            { 15, 135,  45, 165},
-            {195,  75, 225, 105},
-            { 60, 180,  30, 150},
-            {240, 120, 210,  90}
-        };
+    // // DITHERING NOT POSSIBLE WHEN RENDERING STRAIGHT TO CANVAS
+    // void dither_bayer(uint8_t* rgba, int width, int height) {
+    //     static const uint8_t bayer[4][4] = {
+    //         { 15, 135,  45, 165},
+    //         {195,  75, 225, 105},
+    //         { 60, 180,  30, 150},
+    //         {240, 120, 210,  90}
+    //     };
         
-        static const uint8_t quant_levels[4] = {0, 85, 170, 255};
+    //     static const uint8_t quant_levels[4] = {0, 85, 170, 255};
 
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                uint8_t* pixel = &rgba[(y * width + x) * 4];
-                if (pixel[3] < 255) {
-                    // Skip dithering for pixels with alpha channel value < 255
-                    continue;
-                }
-                for (int color = 0; color < 3; color++) { // Only process R, G, B channels
-                    uint8_t normalized_pixel_value = pixel[color];
-                    uint8_t threshold = bayer[x % 4][y % 4];
+    //     for (int x = 0; x < width; x++) {
+    //         for (int y = 0; y < height; y++) {
+    //             uint8_t* pixel = &rgba[(y * width + x) * 4];
+    //             if (pixel[3] < 255) {
+    //                 // Skip dithering for pixels with alpha channel value < 255
+    //                 continue;
+    //             }
+    //             for (int color = 0; color < 3; color++) { // Only process R, G, B channels
+    //                 uint8_t normalized_pixel_value = pixel[color];
+    //                 uint8_t threshold = bayer[x % 4][y % 4];
                     
-                    // Determine the quantization level
-                    int level_index = (normalized_pixel_value * 3) / 255;
+    //                 // Determine the quantization level
+    //                 int level_index = (normalized_pixel_value * 3) / 255;
                     
-                    if (normalized_pixel_value > threshold) {
-                        level_index = (level_index < 3) ? level_index + 1 : 3;
-                    }
+    //                 if (normalized_pixel_value > threshold) {
+    //                     level_index = (level_index < 3) ? level_index + 1 : 3;
+    //                 }
 
-                    pixel[color] = quant_levels[level_index];
-                }
-            }
-        }
-    }
+    //                 pixel[color] = quant_levels[level_index];
+    //             }
+    //         }
+    //     }
+    // }
 
-    // Clamp function to ensure pixel values stay within the valid range
-    uint8_t clamp(int value) {
-        if (value < 0) return 0;
-        if (value > 255) return 255;
-        return (uint8_t)value;
-    }
+    // // Clamp function to ensure pixel values stay within the valid range
+    // uint8_t clamp(int value) {
+    //     if (value < 0) return 0;
+    //     if (value > 255) return 255;
+    //     return (uint8_t)value;
+    // }
 
-    // Find the closest color value (0, 85, 170, 255)
-    uint8_t closest_color(uint8_t value) {
-        if (value < 43) return 0;
-        if (value < 128) return 85;
-        if (value < 213) return 170;
-        return 255;
-    }
+    // // Find the closest color value (0, 85, 170, 255)
+    // uint8_t closest_color(uint8_t value) {
+    //     if (value < 43) return 0;
+    //     if (value < 128) return 85;
+    //     if (value < 213) return 170;
+    //     return 255;
+    // }
 
-    void dither_floyd_steinberg(uint8_t* rgba, int width, int height) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                uint8_t* pixel = &rgba[(y * width + x) * 4];
-                if (pixel[3] < 255) {
-                    // Skip dithering for pixels with alpha channel value < 255
-                    continue;
-                }
-                for (int color = 0; color < 3; color++) {
-                    int old_pixel = pixel[color];
-                    int new_pixel = closest_color(old_pixel);
-                    pixel[color] = new_pixel;
-                    int error = old_pixel - new_pixel;
+    // void dither_floyd_steinberg(uint8_t* rgba, int width, int height) {
+    //     for (int y = 0; y < height; y++) {
+    //         for (int x = 0; x < width; x++) {
+    //             uint8_t* pixel = &rgba[(y * width + x) * 4];
+    //             if (pixel[3] < 255) {
+    //                 // Skip dithering for pixels with alpha channel value < 255
+    //                 continue;
+    //             }
+    //             for (int color = 0; color < 3; color++) {
+    //                 int old_pixel = pixel[color];
+    //                 int new_pixel = closest_color(old_pixel);
+    //                 pixel[color] = new_pixel;
+    //                 int error = old_pixel - new_pixel;
 
-                    if (x + 1 < width) {
-                        rgba[(y * width + (x + 1)) * 4 + color] = clamp(rgba[(y * width + (x + 1)) * 4 + color] + (error * 7 / 16));
-                    }
-                    if (y + 1 < height) {
-                        if (x > 0) {
-                            rgba[((y + 1) * width + (x - 1)) * 4 + color] = clamp(rgba[((y + 1) * width + (x - 1)) * 4 + color] + (error * 3 / 16));
-                        }
-                        rgba[((y + 1) * width + x) * 4 + color] = clamp(rgba[((y + 1) * width + x) * 4 + color] + (error * 5 / 16));
-                        if (x + 1 < width) {
-                            rgba[((y + 1) * width + (x + 1)) * 4 + color] = clamp(rgba[((y + 1) * width + (x + 1)) * 4 + color] + (error * 1 / 16));
-                        }
-                    }
-                }
-            }
-        }
-    }
+    //                 if (x + 1 < width) {
+    //                     rgba[(y * width + (x + 1)) * 4 + color] = clamp(rgba[(y * width + (x + 1)) * 4 + color] + (error * 7 / 16));
+    //                 }
+    //                 if (y + 1 < height) {
+    //                     if (x > 0) {
+    //                         rgba[((y + 1) * width + (x - 1)) * 4 + color] = clamp(rgba[((y + 1) * width + (x - 1)) * 4 + color] + (error * 3 / 16));
+    //                     }
+    //                     rgba[((y + 1) * width + x) * 4 + color] = clamp(rgba[((y + 1) * width + x) * 4 + color] + (error * 5 / 16));
+    //                     if (x + 1 < width) {
+    //                         rgba[((y + 1) * width + (x + 1)) * 4 + color] = clamp(rgba[((y + 1) * width + (x + 1)) * 4 + color] + (error * 1 / 16));
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
 } Pingo3dControl;
 
