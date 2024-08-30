@@ -9,7 +9,6 @@
 #include "sprites.h"
 #include "vdu_stream_processor.h"
 
-#include "pingo/pingo.hpp"
 #include "pingo/test.hpp"
 
 #define PINGO_3D_CONTROL_TAG    0x43443350 // "P3DC"
@@ -39,10 +38,10 @@ typedef struct P3DCtl {
         height = height;
         show_free_ram();
         show_ram_used();
-        // test_vec2f_operations(); // PASSED
-        // test_vec2i_operations(); // PASSED
-        // test_vec3f_operations(); // RUN BUT NOT CHECKED
-        // test_vec3i_operations(); // RUN BUT NOT CHECKED
+        test_vec2f_operations(); // PASSED
+        test_vec2i_operations(); // PASSED
+        test_vec3f_operations(); // RUN BUT NOT CHECKED
+        test_vec3i_operations(); // RUN BUT NOT CHECKED
     }
 } P3DCtl;
 

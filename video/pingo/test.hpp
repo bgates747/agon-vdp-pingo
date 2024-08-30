@@ -1,6 +1,7 @@
 #pragma once
 
-#include "pingo.hpp"
+#include "math/vec2.hpp"
+#include "math/vec3.hpp"
 
 // Function prototypes for Vec2 tests
 void test_vec2f_operations();
