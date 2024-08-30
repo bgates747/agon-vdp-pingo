@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/vec2.hpp"
+#include "math/vec3.hpp"
 
 // math/mat3.h,#include types.h #include vec2.h
 // math/vec3.h,#include types.h

@@ -39,8 +39,10 @@ typedef struct P3DCtl {
         height = height;
         show_free_ram();
         show_ram_used();
-        test_vec2f_operations();
-        test_vec2i_operations();
+        // test_vec2f_operations(); // PASSED
+        // test_vec2i_operations(); // PASSED
+        // test_vec3f_operations(); // RUN BUT NOT CHECKED
+        // test_vec3i_operations(); // RUN BUT NOT CHECKED
     }
 } P3DCtl;
 
