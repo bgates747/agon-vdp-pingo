@@ -21,7 +21,7 @@
 #include "test_flags.h"
 #include "types.h"
 #include "vdu_stream_processor.h"
-// #include "pingo_3d.h"
+#include "pingo_3d.h"
 
 // VDU 23, 0, &A0, bufferId; command: Buffered command support
 //
@@ -246,9 +246,9 @@ void IRAM_ATTR VDUStreamProcessor::vdu_sys_buffered() {
 			if (sourceBufferId == -1) return;
 			bufferExpandBitmap(bufferId, options, sourceBufferId);
 		}	break;
-        // case BUFFERED_PINGO_3D: {
-		// 	bufferUsePingo3D(bufferId);
-        // }   break;
+        case BUFFERED_PINGO_3D: {
+			bufferUsePingo3D(bufferId);
+        }   break;
 		case BUFFERED_DEBUG_INFO: {
 			// force_debug_log("vdu_sys_buffered: debug info stack highwater %d\n\r",uxTaskGetStackHighWaterMark(nullptr));
 			force_debug_log("vdu_sys_buffered: buffer %d, %d streams stored\n\r", bufferId, buffers[bufferId].size());
@@ -2679,56 +2679,56 @@ void VDUStreamProcessor::bufferExpandBitmap(uint16_t bufferId, uint8_t options, 
 // VDU 23, 0, &A0, sid; &49, 38, bmid; :  Render To Bitmap
 // VDU 23, 0, &A0, sid; &49, 39 :  Delete Control Structure (not implemented yet)
 //
-// void VDUStreamProcessor::bufferUsePingo3D(uint16_t bufferId) {
-//     auto subcmd = readByte_t();
-//     if (subcmd == 0) {
-// 		// Create the buffer if necessary
-// 		// Initialize the control structure
-// 		auto w = readWord_t();
-// 		if (w > 0) {
-// 			auto h = readWord_t();
-// 			if (h > 0) {
-// 				auto buffer = bufferCreate(bufferId, sizeof(Pingo3dControl));
-// 				if (buffer) {
-// 					auto ctrl = (Pingo3dControl*) buffer->getBuffer();
-// 					ctrl->initialize(*this, (uint16_t)w, (uint16_t)h);
-// 				}
-// 			} else {
-// 				debug_log("bufferUsePingo3D: buffer %d missing height\n\r", bufferId);
-// 			}
-// 		} else {
-// 			debug_log("bufferUsePingo3D: buffer %d missing width\n\r", bufferId);
-// 		}
-// 	} else if (subcmd == 39) {
-// 		// Deinitialize the control structure
-// 		// Delete the buffer
-// 		auto bufferIter = buffers.find(bufferId);
-// 		if (bufferIter != buffers.end()) {
-// 			auto &buffer = bufferIter->second;
-// 			auto ctrl = (Pingo3dControl*) buffer.begin()->get()->getBuffer();
-// 			if (ctrl->validate()) {
-// 				ctrl->deinitialize(*this);
-// 				buffers.erase(bufferIter);
-// 			} else {
-// 				debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
-// 			}
-// 		} else {
-// 			debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
-// 		}            
-//     } else {
-//         auto bufferIter = buffers.find(bufferId);
-//         if (bufferIter != buffers.end()) {
-// 			auto &buffer = bufferIter->second;
-// 			auto ctrl = (Pingo3dControl*) buffer.begin()->get()->getBuffer();
-//             if (ctrl->validate()) {
-//                 ctrl->handle_subcommand(*this, subcmd);
-//             } else {
-//            		debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
-//             }
-//         } else {
-//     		debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
-//         }
-//     }
-// }
+void VDUStreamProcessor::bufferUsePingo3D(uint16_t bufferId) {
+    auto subcmd = readByte_t();
+    if (subcmd == 0) {
+		// Create the buffer if necessary
+		// Initialize the control structure
+		auto w = readWord_t();
+		if (w > 0) {
+			auto h = readWord_t();
+			if (h > 0) {
+				auto buffer = bufferCreate(bufferId, sizeof(P3DCtl));
+				if (buffer) {
+					auto ctrl = (P3DCtl*) buffer->getBuffer();
+					ctrl->initialize(*this, (uint16_t)w, (uint16_t)h);
+				}
+			} else {
+				debug_log("bufferUsePingo3D: buffer %d missing height\n\r", bufferId);
+			}
+		} else {
+			debug_log("bufferUsePingo3D: buffer %d missing width\n\r", bufferId);
+		}
+	} else if (subcmd == 39) {
+		// // Deinitialize the control structure
+		// // Delete the buffer
+		// auto bufferIter = buffers.find(bufferId);
+		// if (bufferIter != buffers.end()) {
+		// 	auto &buffer = bufferIter->second;
+		// 	auto ctrl = (P3DCtl*) buffer.begin()->get()->getBuffer();
+		// 	if (ctrl->validate()) {
+		// 		ctrl->deinitialize(*this);
+		// 		buffers.erase(bufferIter);
+		// 	} else {
+		// 		debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
+		// 	}
+		// } else {
+		// 	debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
+		// }            
+    } else {
+        // auto bufferIter = buffers.find(bufferId);
+        // if (bufferIter != buffers.end()) {
+		// 	auto &buffer = bufferIter->second;
+		// 	auto ctrl = (P3DCtl*) buffer.begin()->get()->getBuffer();
+        //     if (ctrl->validate()) {
+        //         ctrl->handle_subcommand(*this, subcmd);
+        //     } else {
+        //    		debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
+        //     }
+        // } else {
+    	// 	debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
+        // }
+    }
+}
 
 #endif // VDU_BUFFERED_H
