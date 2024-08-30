@@ -9,9 +9,8 @@
 #include "sprites.h"
 #include "vdu_stream_processor.h"
 
-namespace p3d {
-    #include "pingo/pingo.hpp"
-} // namespace p3d
+#include "pingo/pingo.hpp"
+#include "pingo/test.hpp"
 
 #define PINGO_3D_CONTROL_TAG    0x43443350 // "P3DC"
 
@@ -21,15 +20,6 @@ typedef struct P3DCtl {
     VDUStreamProcessor* proc;             // Used by subcommands to obtain more data
     uint16_t            width;            // Width of final render in pixels
     uint16_t            height;           // Height of final render in pixels
-
-    // p3d::BackEnd        backend;          // Used by the renderer
-    // p3d::Pixel*         frame;            // Frame buffer for rendered pixels
-    // p3d::PingoDepth*    zeta;             // Zeta buffer for depth information
-    // Transformable       camera;           // Camera transformation settings
-    // Transformable       scene;            // Scene transformation settings
-    // std::map<uint16_t, p3d::Mesh>* meshes;    // Map of meshes for use by objects
-    // std::map<uint16_t, TexObject>* objects;   // Map of textured objects that use meshes and have transforms
-    // uint8_t             dither_type;      // Dithering type and options to be applied to rendered bitmap
 
     void show_free_ram() {
         printf("Free PSRAM: %u\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
@@ -49,6 +39,8 @@ typedef struct P3DCtl {
         height = height;
         show_free_ram();
         show_ram_used();
+        test_vec2f_operations();
+        test_vec2i_operations();
     }
 } P3DCtl;
 
