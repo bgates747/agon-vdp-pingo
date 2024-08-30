@@ -137,7 +137,7 @@ class VDUStreamProcessor {
 		void bufferDecompress(uint16_t bufferId, uint16_t sourceBufferId);
 		void bufferExpandBitmap(uint16_t bufferId, uint8_t options, uint16_t sourceBufferId);
 		
-		void bufferUsePingo3D(uint16_t bufferId);
+		// void bufferUsePingo3D(uint16_t bufferId);
 
 		void vdu_sys_updater();
 		void unlock();
