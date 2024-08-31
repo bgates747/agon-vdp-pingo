@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+namespace p3d {
 
 // Integer-based 3D vector
 struct Vec3i {
@@ -25,3 +26,5 @@ Vec3f vec3fsum(const Vec3f& a, float b);
 float vec3Dot(const Vec3f& a, const Vec3f& b);
 Vec3f vec3Cross(const Vec3f& a, const Vec3f& b);
 Vec3f vec3Normalize(const Vec3f& v);
+
+} // namespace p3d

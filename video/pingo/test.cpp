@@ -3,6 +3,8 @@
 
 #include "test.hpp"
 
+namespace p3d {
+
 // PASSED
 // Function to test Vec2f (float) operations
 void test_vec2f_operations() {
@@ -111,3 +113,5 @@ void test_vec3i_operations() {
     Vec3i vecE = {vecA.x * scalar, vecA.y * scalar, vecA.z * scalar};
     printf("vecA * %d = (%d, %d, %d)\n", scalar, vecE.x, vecE.y, vecE.z);
 }
+
+} // namespace p3d

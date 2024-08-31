@@ -1,5 +1,7 @@
 #include "vec2.hpp"
 
+namespace p3d {
+
 // Function to add two Vec2f vectors
 Vec2f vector2fSum(const Vec2f& l, const Vec2f& r) {
     Vec2f result;
@@ -31,3 +33,5 @@ Vec2i vecFtoI(const Vec2f& v) {
     result.y = static_cast<int>(v.y);
     return result;
 }
+
+} // namespace p3d

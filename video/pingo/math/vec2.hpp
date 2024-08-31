@@ -1,6 +1,5 @@
 #pragma once
-
-#include <cmath> 
+namespace p3d {
 
 // Integer-based 2D vector
 struct Vec2i {
@@ -19,3 +18,5 @@ Vec2f vector2fSum(const Vec2f& l, const Vec2f& r);
 Vec2i vector2ISum(const Vec2i& l, const Vec2i& r);
 Vec2f vecItoF(const Vec2i& v);
 Vec2i vecFtoI(const Vec2f& v);
+
+} // namespace p3d

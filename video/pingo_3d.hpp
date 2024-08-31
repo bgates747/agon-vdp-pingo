@@ -9,17 +9,33 @@
 #include "sprites.h"
 #include "vdu_stream_processor.h"
 
+#include "pingo/render/mesh.hpp"
+#include "pingo/render/object.hpp"
+#include "pingo/render/renderer.hpp"
+#include "pingo/render/scene.hpp"
+#include "pingo/render/depth.hpp"
 #include "pingo/test.hpp"
 
 #define PINGO_3D_CONTROL_TAG    0x43443350 // "P3DC"
 
-typedef struct P3DCtl {
-    uint32_t            m_tag;              // Used to verify the existence of this structure
-    uint32_t            m_size;             // Used to verify the existence of this structure
-    VDUStreamProcessor* m_proc;             // Used by subcommands to obtain more data
-    uint16_t            m_width;            // Width of final render in pixels
-    uint16_t            m_height;           // Height of final render in pixels
-    uint8_t             m_lastc;            // DEBUG
+#define PI2                    6.283185307179586476925286766559f
+
+struct P3DCtl {
+    uint32_t            m_tag;                  // Used to verify the existence of this structure
+    uint32_t            m_size;                 // Used to verify the existence of this structure
+    VDUStreamProcessor* m_proc;                 // Used by subcommands to obtain more data
+    // p3d::BackEnd        m_backend;              // Used by the renderer
+    // p3d::Pixel*         m_frame;                // Frame buffer for rendered pixels
+    // p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
+    uint16_t            m_width;                // Width of final render in pixels
+    uint16_t            m_height;               // Height of final render in pixels
+    // Transformable       m_camera;               // Camera transformation settings
+    // Transformable       m_scene;                // Scene transformation settings
+    // std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
+    // std::map<uint16_t, TexObject>* m_objects;   // Map of textured objects that use meshes and have transforms
+    uint8_t             m_dither_type;      // Dithering type and options to be applied to rendered bitmap
+
+    uint8_t             m_lastc;            // DEBUG: Last color used for screen coloring
 
 bool validate() {
     return (m_tag == PINGO_3D_CONTROL_TAG && m_size == sizeof(P3DCtl));
@@ -42,6 +58,10 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     m_width = w;
     m_height = h;
     m_lastc = 0;
+    p3d::test_vec2f_operations();
+    p3d::test_vec2i_operations();
+    p3d::test_vec3f_operations();
+    p3d::test_vec3i_operations();
 }
 
 void handle_subcommand(VDUStreamProcessor& processor, uint8_t subcmd) {
@@ -57,11 +77,12 @@ void color_screen() {
     uint8_t c = m_lastc;
     m_lastc++;
     for (int y = 0; y < m_height; y++) {
-        fabgl::RGBA8888 value = fabgl::RGBA8888(c);
         for (int x = 0; x < m_width; x++) {
+            c |= 0b11000000;
+            fabgl::RGBA8888 value = fabgl::RGBA8888(c);
             bitmap->setPixel(x, y, value);
+            c++;
         }
-        c++;
     }
 }
 
@@ -98,6 +119,6 @@ void run_tests() {
     //        elapsed_color, fps_color, elapsed_draw, fps_draw, total_elapsed, fps_total);
 }
 
-} P3DCtl;
+}; // struct P3DCtl
 
 #endif // PINGO_3D_H

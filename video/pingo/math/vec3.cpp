@@ -1,4 +1,5 @@
 #include "vec3.hpp"
+namespace p3d {
 
 // Function to create a Vec3f
 Vec3f vec3f(float x, float y, float z) {
@@ -47,3 +48,5 @@ Vec3f vec3Normalize(const Vec3f& v) {
     }
     return Vec3f{0, 0, 0};  // Return a zero vector if the magnitude is zero
 }
+
+} // namespace p3d
