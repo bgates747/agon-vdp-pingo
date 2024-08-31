@@ -1,6 +1,6 @@
 
-; ; ============ KEYBOARD INPUT ============
-; do_input:
+; ============ KEYBOARD INPUT ============
+do_input:
 ; ; reset control object movement and rotation deltas
 ;     ld hl,0
 
@@ -12,14 +12,20 @@
 ;     ld (camdry),hl
 ;     ld (camdrz),hl
 
-; ; get user keyboard input
-; 	; MOSCALL mos_getkbmap
-;     ld ix,keyboard_masks
+; get user keyboard input
+	; MOSCALL mos_getkbmap
+    ld ix,keyboard_masks
 
-; ; ------ QUIT ------
-; ; 113 Escape
-;     bit 0,(ix+14)
-; 	jp nz,main_end
+; ------ QUIT ------
+; 113 Escape
+    bit 0,(ix+14)
+	jp nz,main_end
+
+; ; ------ TEST ROUTINE ------
+; ; 99 Space do testing routine
+;     bit 2,(ix+12)
+;     jp z,no_move
+;     RUN_TESTS sid
 
 ; ; ------ RENDERING OPTIONS ------
 ; ; 99 Space cycle through dithering types
@@ -139,8 +145,8 @@
 ;     xor a
 ; @Right:
 
-;     and a ; zero means we need to rotate and or move the camera
-;     jp nz,no_move
+    ; and a ; zero means we need to rotate and or move the camera
+    ; jp nz,no_move
 
 ;     call rotate_camera_loc
 ;     call move_camera_loc
@@ -151,7 +157,7 @@
 ;     ; ld l,a
 ;     ; call printDec
 
-;     jp rendbmp
+    jp rendbmp
 
 ; app_special_init:
 ; ; clear the screen twice to set both buffers to background color

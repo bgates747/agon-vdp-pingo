@@ -2673,18 +2673,18 @@ void VDUStreamProcessor::bufferUsePingo3D(uint16_t bufferId) {
 		// 	debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
 		// }            
     } else {
-        // auto bufferIter = buffers.find(bufferId);
-        // if (bufferIter != buffers.end()) {
-		// 	auto &buffer = bufferIter->second;
-		// 	auto ctrl = (P3DCtl*) buffer.begin()->get()->getBuffer();
-        //     if (ctrl->validate()) {
-        //         ctrl->handle_subcommand(*this, subcmd);
-        //     } else {
-        //    		debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
-        //     }
-        // } else {
-    	// 	debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
-        // }
+        auto bufferIter = buffers.find(bufferId);
+        if (bufferIter != buffers.end()) {
+			auto &buffer = bufferIter->second;
+			auto ctrl = (P3DCtl*) buffer.begin()->get()->getBuffer();
+            if (ctrl->validate()) {
+                ctrl->handle_subcommand(*this, subcmd);
+            } else {
+           		debug_log("bufferUsePingo3D: buffer %d is invalid\n\r", bufferId);
+            }
+        } else {
+    		debug_log("bufferUsePingo3D: buffer %d not found\n\r", bufferId);
+        }
     }
 }
 

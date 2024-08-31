@@ -48,7 +48,8 @@ push_a_button: db "Press any key to continue.",0
 ; end application includes
 
 ; control includes
-    include "inputcam.inc"
+    include "inputtest.inc"
+    ; include "inputcam.inc"
     ; include "inputobj.inc"
     ; include "inputair.inc"
 ; end control includes
@@ -128,9 +129,9 @@ ccs:
 ; smni:
 ;     SMNI sid, mid, model_normal_indices, model_indices_n
 
-; ; create render target bitmap
-; ctb:
-;     CTB tgtbmid, cstw, csth
+; create render target bitmap
+ctb:
+    CTB tgtbmid, cstw, csth
 
 ; ; create object
 ; co:
@@ -145,24 +146,24 @@ ccs:
 ;     ld hl,sid
 ;     call vdu_set_dither
 
-; preloop:
-;     ld a,8+128 ; 320x240x64 double-buffered
-;     call vdu_set_screen_mode
-;     ld hl,@beg
-;     ld bc,@end-@beg
-;     rst.lil $18
-;     jp @end
-; @beg:
-; ;   940 VDU 23, 0, &C0, 0: REM Normal coordinates
-;     db 23,0,$C0,0
-; ;   960 VDU 17,20+128 : REM set text background color to lighter azure
-;     db 17,20+128
-; ;   970 VDU 18, 0, 20+128 : REM set gfx background color to lighter azure
-;     db 18,0,20+128
-; @end:
+preloop:
+    ld a,8+128 ; 320x240x64 double-buffered
+    call vdu_set_screen_mode
+    ld hl,@beg
+    ld bc,@end-@beg
+    rst.lil $18
+    jp @end
+@beg:
+;   940 VDU 23, 0, &C0, 0: REM Normal coordinates
+    db 23,0,$C0,0
+;   960 VDU 17,20+128 : REM set text background color to lighter azure
+    db 17,20+128
+;   970 VDU 18, 0, 20+128 : REM set gfx background color to lighter azure
+    db 18,0,20+128
+@end:
 
-; ; call app special init
-;     call app_special_init
+; call app special init
+    call app_special_init
 
 ; ; set initial object position
 ;     ; call move_object
@@ -179,39 +180,39 @@ ccs:
 ;     ld iy,(camz)
 ;     call scdabs
 
-; ; initialize main loop timer
-; main_loop_timer_reset: equ 12 ; 120ths of a second
-;     ld hl,main_loop_timer_reset
-;     call tmr_main_loop_set
+; initialize main loop timer
+main_loop_timer_reset: equ 12 ; 120ths of a second
+    ld hl,main_loop_timer_reset
+    call tmr_main_loop_set
 
-; ; render inital scene
-;     jp rendbmp
+; render inital scene
+    jp rendbmp
 
-; mainloop:
-;     call reset_keys
+mainloop:
+    call reset_keys
 
-; waitloop:
-;     call set_keys
-;     call tmr_main_loop_get
-;     jp z, do_input
-;     jp m, do_input
-;     jp waitloop
+waitloop:
+    call set_keys
+    call tmr_main_loop_get
+    jp z,do_input
+    jp m,do_input
+    jp waitloop
 
-; rendbmp:
-;     call app_special_render
+rendbmp:
+    call app_special_render
 
-; no_move:
-;     ld hl,main_loop_timer_reset
-;     call tmr_main_loop_set
-;     jp mainloop
+no_move:
+    ld hl,main_loop_timer_reset
+    call tmr_main_loop_set
+    jp mainloop
 
-; main_end:
-; ; exit program gracefully
-;     xor a ; 640x480x16 single-buffered
-;     call vdu_set_screen_mode
-;     ld a,1 ; scaling on
-;     call vdu_set_scaling
-;     call cursor_on
+main_end:
+; exit program gracefully
+    xor a ; 640x480x16 single-buffered
+    call vdu_set_screen_mode
+    ld a,1 ; scaling on
+    call vdu_set_scaling
+    call cursor_on
     ret
 
 filedata: ; no need to allocate space here if this is the final address label of the application
