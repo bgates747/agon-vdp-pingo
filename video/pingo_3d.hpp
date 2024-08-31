@@ -89,34 +89,34 @@ void color_screen() {
 void run_tests() {
     // printf("Starting run_tests...\n");
     
-    // // Step 1: Color the screen
-    // auto start = millis();
+    // Step 1: Color the screen
+    auto start = millis();
     color_screen();
-    // auto end = millis();
-    // auto elapsed_color = end - start;
+    auto end = millis();
+    auto elapsed_color = end - start;
     
-    // // Calculate FPS for coloring
-    // float fps_color = 1000.0f / elapsed_color;
+    // Calculate FPS for coloring
+    float fps_color = 1000.0f / elapsed_color;
 
-    // // Step 2: Retrieve the bitmap and draw it on the canvas
-    // start = millis();
+    // Step 2: Retrieve the bitmap and draw it on the canvas
+    start = millis();
     auto bitmap = getBitmap(257);  
 
     const fabgl::Bitmap* rawBitmapPtr = bitmap.get();
     canvas->drawBitmap(0, 0, rawBitmapPtr);
-    // end = millis();
-    // auto elapsed_draw = end - start;
+    end = millis();
+    auto elapsed_draw = end - start;
 
-    // // Calculate FPS for drawing
-    // float fps_draw = 1000.0f / elapsed_draw;
+    // Calculate FPS for drawing
+    float fps_draw = 1000.0f / elapsed_draw;
 
-    // // Total elapsed time
-    // auto total_elapsed = elapsed_color + elapsed_draw;
-    // float fps_total = 1000.0f / total_elapsed;
+    // Total elapsed time
+    auto total_elapsed = elapsed_color + elapsed_draw;
+    float fps_total = 1000.0f / total_elapsed;
 
-    // // Print the results
-    // printf("Time (ms), FPS: color_screen: %u, %.2f; draw: %u, %.2f; total: %u, %.2f\n",
-    //        elapsed_color, fps_color, elapsed_draw, fps_draw, total_elapsed, fps_total);
+    // Print the results
+    printf("Time (ms), FPS: color_screen: %u, %.2f; draw: %u, %.2f; total: %u, %.2f\n",
+           elapsed_color, fps_color, elapsed_draw, fps_draw, total_elapsed, fps_total);
 }
 
 }; // struct P3DCtl

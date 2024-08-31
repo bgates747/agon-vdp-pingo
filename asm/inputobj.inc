@@ -171,8 +171,18 @@ obj_scale: equ 256
 objbmid: equ 256
 tgtbmid: equ 257
 
+; full screen 10 fps
 cstw: equ 320
 csth: equ 240
+
+; ; wolf3d target 20 fps
+; cstw: equ 240
+; csth: equ 160
+
+; ; fsim target 17 fps
+; cstw: equ 320
+; csth: equ 148
+
 cstx: equ 0
 csty: equ 0
 
