@@ -240,20 +240,55 @@ void VDUStreamProcessor::createBitmapFromScreen(uint16_t bufferId) {
 	canvas->copyToBitmap(rect.X1, rect.Y1, getBitmap(bufferId).get());
 }
 
-void VDUStreamProcessor::createEmptyBitmap(uint16_t bufferId, uint16_t width, uint16_t height, uint32_t color) {
-	bufferClear(bufferId);
+// void VDUStreamProcessor::createEmptyBitmap(uint16_t bufferId, uint16_t width, uint16_t height, uint32_t color) {
+// 	bufferClear(bufferId);
 
-	// create a new buffer of appropriate size
-	uint32_t size = width * height;
-	auto buffer = bufferCreate(bufferId, sizeof(uint32_t) * size);
-	if (!buffer) {
-		debug_log("vdu_sys_sprites: failed to create buffer\n\r");
-		return;
-	}
-	auto dataptr = (uint32_t *)buffer->getBuffer();
-	for (auto n = 0; n < size; n++) dataptr[n] = color;
-	// create RGBA8888 bitmap from buffer
-	createBitmapFromBuffer(bufferId, 0, width, height);
+// 	// create a new buffer of appropriate size
+// 	uint32_t size = width * height;
+// 	auto buffer = bufferCreate(bufferId, sizeof(uint32_t) * size);
+// 	if (!buffer) {
+// 		debug_log("vdu_sys_sprites: failed to create buffer\n\r");
+// 		return;
+// 	}
+// 	auto dataptr = (uint32_t *)buffer->getBuffer();
+// 	for (auto n = 0; n < size; n++) dataptr[n] = color;
+// 	// create RGBA8888 bitmap from buffer
+// 	createBitmapFromBuffer(bufferId, 0, width, height);
+// }
+
+void VDUStreamProcessor::createEmptyBitmap(uint16_t bufferId, uint16_t width, uint16_t height, uint32_t color) {
+    bufferClear(bufferId);
+
+    // Calculate the number of pixels
+    uint32_t size = width * height;
+
+    // Create a new buffer of appropriate size for RGBA2222 (1 byte per pixel)
+    auto buffer = bufferCreate(bufferId, sizeof(uint8_t) * size);
+    if (!buffer) {
+        debug_log("vdu_sys_sprites: failed to create buffer\n\r");
+        return;
+    }
+
+    // Convert RGBA8888 to RGBA2222
+    uint8_t r = (color >> 24) & 0xFF;  // Extract Red from RGBA8888
+    uint8_t g = (color >> 16) & 0xFF;  // Extract Green from RGBA8888
+    uint8_t b = (color >> 8) & 0xFF;   // Extract Blue from RGBA8888
+    uint8_t a = color & 0xFF;          // Extract Alpha from RGBA8888
+
+    // Map 8-bit channels to 2-bit channels
+    uint8_t rgba2222 = ((r >> 6) << 6) |  // Red
+                       ((g >> 6) << 4) |  // Green
+                       ((b >> 6) << 2) |  // Blue
+                       ((a >> 6));        // Alpha
+
+    // Fill the buffer with the converted color
+    auto dataptr = (uint8_t *)buffer->getBuffer();
+    for (auto n = 0; n < size; n++) {
+        dataptr[n] = rgba2222;
+    }
+
+    // Create RGBA2222 bitmap from buffer
+    createBitmapFromBuffer(bufferId, 1, width, height);
 }
 
 void VDUStreamProcessor::createBitmapFromBuffer(uint16_t bufferId, uint8_t format, uint16_t width, uint16_t height) {

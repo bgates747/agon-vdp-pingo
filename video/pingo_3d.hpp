@@ -72,6 +72,20 @@ void handle_subcommand(VDUStreamProcessor& processor, uint8_t subcmd) {
     }
 }
 
+// void color_screen() {
+//     auto bitmap = getBitmap(257);  
+//     uint8_t c = m_lastc;
+//     m_lastc++;
+//     for (int y = 0; y < m_height; y++) {
+//         for (int x = 0; x < m_width; x++) {
+//             c |= 0b11000000;
+//             fabgl::RGBA8888 value = fabgl::RGBA8888(c);
+//             bitmap->setPixel(x, y, value);
+//             c++;
+//         }
+//     }
+// }
+
 void color_screen() {
     auto bitmap = getBitmap(257);  
     uint8_t c = m_lastc;
@@ -79,8 +93,7 @@ void color_screen() {
     for (int y = 0; y < m_height; y++) {
         for (int x = 0; x < m_width; x++) {
             c |= 0b11000000;
-            fabgl::RGBA8888 value = fabgl::RGBA8888(c);
-            bitmap->setPixel(x, y, value);
+            bitmap->setPixel(x, y, fabgl::RGBA2222(c));
             c++;
         }
     }

@@ -181,7 +181,7 @@ preloop:
 ;     call scdabs
 
 ; initialize main loop timer
-main_loop_timer_reset: equ 12 ; 120ths of a second
+main_loop_timer_reset: equ 2 ; 120ths of a second
     ld hl,main_loop_timer_reset
     call tmr_main_loop_set
 
