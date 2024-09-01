@@ -2,6 +2,19 @@
 
 namespace p3d {
 
+// Renderer constructor
+Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height,
+                   fabgl::RGBA2222 clearColor, int clear)
+    : scene(scene),
+      camera(camera),
+      frameBuffer(nullptr),         // Set default to nullptr
+      background(nullptr),          // Set default to nullptr
+      z_buffer(new PingoDepth[width * height]),  // Create z_buffer using width and height
+      clear(clear),
+      clearColor(clearColor) {
+    // Additional initialization can be added here if necessary
+}
+
 void renderRenderable(Mat4 transform, Renderer * r, Renderable ren) {
     renderingFunctions[ren.renderableType](transform, r, ren);
 };
@@ -41,6 +54,7 @@ void backendDrawPixel (Renderer * r, fabgl::Bitmap * f, Vec2i pos, fabgl::RGBA22
 }
 
 int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
+    Camera * camera = r->camera;
     fabgl::Bitmap frameBuffer = *r->frameBuffer;
     const Vec2i scrSize = {frameBuffer.width, frameBuffer.height};
     float halfX = scrSize.x / 2.0f;
@@ -55,8 +69,8 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
 
     // VIEW MATRIX
-    Mat4 v = r->camera_view;
-    Mat4 p = r->camera_projection;
+    Mat4 v = camera->camera_view;
+    Mat4 p = camera->camera_projection;
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];

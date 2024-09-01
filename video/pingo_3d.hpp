@@ -11,6 +11,8 @@
 
 #include "pingo/render/mesh.hpp"
 #include "pingo/render/object.hpp"
+#include "pingo/render/transformable.hpp"
+#include "pingo/render/camera.hpp"
 #include "pingo/render/renderer.hpp"
 #include "pingo/render/scene.hpp"
 #include "pingo/render/depth.hpp"
@@ -24,16 +26,14 @@ struct P3DCtl {
     uint32_t            m_tag;                  // Used to verify the existence of this structure
     uint32_t            m_size;                 // Used to verify the existence of this structure
     VDUStreamProcessor* m_proc;                 // Used by subcommands to obtain more data
-    // p3d::BackEnd        m_backend;              // Used by the renderer
-    // p3d::Pixel*         m_frame;                // Frame buffer for rendered pixels
-    // p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
     uint16_t            m_width;                // Width of final render in pixels
     uint16_t            m_height;               // Height of final render in pixels
-    // Transformable       m_camera;               // Camera transformation settings
-    // Transformable       m_scene;                // Scene transformation settings
-    // std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
-    // std::map<uint16_t, TexObject>* m_objects;   // Map of textured objects that use meshes and have transforms
-    uint8_t             m_dither_type;      // Dithering type and options to be applied to rendered bitmap
+    p3d::Scene          m_scene;                // Scene transformation settings
+    p3d::Camera         m_camera;               // Camera transformation settings
+    p3d::Renderer       m_renderer;             // Renderer settings
+    std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
+    std::map<uint16_t, p3d::Object>* m_objects; // Map of textured objects that use meshes and have transforms
+    uint8_t             m_dither_type;          // Dithering type and options to be applied to rendered bitmap
 
     uint8_t             m_lastc;            // DEBUG: Last color used for screen coloring
 
@@ -55,8 +55,22 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     memset(this, 0, sizeof(P3DCtl));
     m_tag = PINGO_3D_CONTROL_TAG;
     m_size = sizeof(P3DCtl);
+    m_proc = &processor;
     m_width = w;
     m_height = h;
+    sceneInit(&m_scene);
+
+    float fieldOfView = 1.5708f;                     // 90 degrees field of view in radians
+    float aspectRatio = m_width / m_height;          // Aspect ratio (width/height)
+    float nearClippingPlane = 1.0f;                  // Near clipping plane
+    float farClippingPlane = 2500.0f;                // Far clipping plane
+    p3d::Camera m_camera(p3d::mat4Identity(), fieldOfView, aspectRatio, nearClippingPlane, farClippingPlane);
+    
+    fabgl::RGBA2222 clearColor = {0xFF};
+    p3d::Renderer renderer(&m_scene, &m_camera, m_width, m_width, clearColor, 1);
+
+    m_meshes = new std::map<uint16_t, p3d::Mesh>;
+    m_objects = new std::map<uint16_t, p3d::Object>;
 
     // int size = 0;
     // int frame_size = m_width * m_height;

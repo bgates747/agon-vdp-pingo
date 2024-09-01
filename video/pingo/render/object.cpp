@@ -3,7 +3,7 @@
 namespace p3d {
 
 // Constructor to initialize Object
-Object::Object(Mesh* mesh, Material* material)
+Object::Object(Mesh* mesh, Material* material, uint16_t oid) 
     : Transformable(),  // Call the base constructor for Transformable
       mesh(mesh),
       material(material),
@@ -13,6 +13,7 @@ Object::Object(Mesh* mesh, Material* material)
     this->scale = {1.0f, 1.0f, 1.0f};  // Default scale
     this->rotation = {0.0f, 0.0f, 0.0f};  // Default rotation
     this->translation = {0.0f, 0.0f, 0.0f};  // Default translation
+    this->oid = oid;  // Set the Object ID
     compute_transformation_matrix(*this);  // Initialize the transformation matrix
 }
 

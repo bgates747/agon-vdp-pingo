@@ -15,9 +15,11 @@ struct Object : public Transformable {
     Material* material;        // Pointer to the Material used by the Object
     uint16_t* tex_indices;     // Pointer to texture indices
     Vec2f* textCoord;          // Pointer to texture coordinates
+    uint16_t        oid;     // Object ID
+
 
     // Constructor
-    Object(Mesh* mesh, Material* material);
+    Object(Mesh* mesh, Material* material, uint16_t oid);
 
     // Method to convert Object to Renderable
     Renderable as_renderable();
