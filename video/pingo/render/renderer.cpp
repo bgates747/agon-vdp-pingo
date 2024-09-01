@@ -59,7 +59,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     const Vec2i scrSize = {frameBuffer.width, frameBuffer.height};
     float halfX = scrSize.x / 2.0f;
     float halfY = scrSize.y / 2.0f;
-    Object* o = static_cast<Object*>(ren.impl);
+    TexObject* o = static_cast<TexObject*>(ren.impl);
     Vec2f* tex_coords = o->textCoord;
     fabgl::Bitmap* texture = o->material->texture;
     Vec2i tex_size = {texture->width, texture->height};

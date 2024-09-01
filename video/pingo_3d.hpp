@@ -16,6 +16,8 @@
 #include "pingo/render/renderer.hpp"
 #include "pingo/render/scene.hpp"
 #include "pingo/render/depth.hpp"
+
+// DEBUG ONLY
 #include "pingo/test.hpp"
 
 #define PINGO_3D_CONTROL_TAG    0x43443350 // "P3DC"
@@ -65,17 +67,14 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     float nearClippingPlane = 1.0f;                  // Near clipping plane
     float farClippingPlane = 2500.0f;                // Far clipping plane
     p3d::Camera m_camera(p3d::mat4Identity(), fieldOfView, aspectRatio, nearClippingPlane, farClippingPlane);
-    
+
     fabgl::RGBA2222 clearColor = {0xFF};
     p3d::Renderer renderer(&m_scene, &m_camera, m_width, m_width, clearColor, 1);
 
     m_meshes = new std::map<uint16_t, p3d::Mesh>;
     m_objects = new std::map<uint16_t, p3d::Object>;
 
-    // int size = 0;
-    // int frame_size = m_width * m_height;
-    // m_zeta = p3d::depth_buffer_create(frame_size);
-
+// DEBUG TESTING STUFF
     m_lastc = 0;
     // p3d::test_vec2f_operations();
     // p3d::test_vec2i_operations();
@@ -100,15 +99,11 @@ void color_screen() {
             c |= 0b11000000;
             bitmap->setPixel(x, y, fabgl::RGBA2222(c));
             c++;
-            // int idx = (y * m_width) + x;
-            // p3d::depth_write(m_zeta, idx, (float) idx);
         }
     }
 }
 
 void run_tests() {
-    // printf("Starting run_tests...\n");
-    
     // Step 1: Color the screen
     auto start = millis();
     color_screen();
