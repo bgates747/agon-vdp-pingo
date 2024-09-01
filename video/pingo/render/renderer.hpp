@@ -7,7 +7,7 @@
 
 namespace p3d {
 
-struct Scene scene;
+struct Scene;
 struct Renderer{
     Vec4i camera;
     Scene * scene;
@@ -24,7 +24,7 @@ extern int rendererRender(Renderer *);
 
 extern int rendererInit(Renderer *, Vec2i size, struct tag_BackEnd * backEnd);
 
-extern int rendererSetScene(Renderer *r, Scene *s);
+extern int rendererSetScene(Renderer *r, Scene * scene);
 
 extern int rendererSetCamera(Renderer *r, Vec4i camera);
 

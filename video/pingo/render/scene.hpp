@@ -16,7 +16,7 @@ struct Scene {
     uint8_t visible;
 };
 
-extern int sceneInit(Scene * s);
+extern int sceneInit(Scene * scene);
 extern int sceneAddRenderable(Scene * scene, Renderable renderable);
 
 extern Renderable sceneAsRenderable(Scene * scene);

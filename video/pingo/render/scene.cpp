@@ -12,10 +12,10 @@ int sceneAddRenderable(Scene * scene, Renderable renderable) {
     return 0;
 }
 
-int sceneInit(Scene * s) {
-    s->transform = mat4Identity();
-    s->numberOfRenderables = 0;
-    s->visible = 1;
+int sceneInit(Scene * scene) {
+    scene->transform = mat4Identity();
+    scene->numberOfRenderables = 0;
+    scene->visible = 1;
 
     return 0;
 }
