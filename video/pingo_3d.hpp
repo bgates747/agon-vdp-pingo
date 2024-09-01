@@ -26,7 +26,7 @@ struct P3DCtl {
     VDUStreamProcessor* m_proc;                 // Used by subcommands to obtain more data
     // p3d::BackEnd        m_backend;              // Used by the renderer
     // p3d::Pixel*         m_frame;                // Frame buffer for rendered pixels
-    // p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
+    p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
     uint16_t            m_width;                // Width of final render in pixels
     uint16_t            m_height;               // Height of final render in pixels
     // Transformable       m_camera;               // Camera transformation settings
@@ -57,11 +57,16 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     m_size = sizeof(P3DCtl);
     m_width = w;
     m_height = h;
+
+    int size = 0;
+    int frame_size = m_width * m_height;
+    m_zeta = p3d::depth_buffer_create(frame_size);
+
     m_lastc = 0;
-    p3d::test_vec2f_operations();
-    p3d::test_vec2i_operations();
-    p3d::test_vec3f_operations();
-    p3d::test_vec3i_operations();
+    // p3d::test_vec2f_operations();
+    // p3d::test_vec2i_operations();
+    // p3d::test_vec3f_operations();
+    // p3d::test_vec3i_operations();
 }
 
 void handle_subcommand(VDUStreamProcessor& processor, uint8_t subcmd) {
@@ -72,20 +77,6 @@ void handle_subcommand(VDUStreamProcessor& processor, uint8_t subcmd) {
     }
 }
 
-// void color_screen() {
-//     auto bitmap = getBitmap(257);  
-//     uint8_t c = m_lastc;
-//     m_lastc++;
-//     for (int y = 0; y < m_height; y++) {
-//         for (int x = 0; x < m_width; x++) {
-//             c |= 0b11000000;
-//             fabgl::RGBA8888 value = fabgl::RGBA8888(c);
-//             bitmap->setPixel(x, y, value);
-//             c++;
-//         }
-//     }
-// }
-
 void color_screen() {
     auto bitmap = getBitmap(257);  
     uint8_t c = m_lastc;
@@ -95,6 +86,8 @@ void color_screen() {
             c |= 0b11000000;
             bitmap->setPixel(x, y, fabgl::RGBA2222(c));
             c++;
+            int idx = (y * m_width) + x;
+            p3d::depth_write(m_zeta, idx, (float) idx);
         }
     }
 }
