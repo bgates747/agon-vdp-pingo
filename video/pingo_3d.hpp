@@ -1,8 +1,8 @@
 #ifndef PINGO_3D_H
 #define PINGO_3D_H
 
-#include <stdint.h>
-#include <string.h>
+#include <cstdint>
+#include <string>
 #include <agon.h>
 #include <map>
 #include "esp_heap_caps.h"
