@@ -2,8 +2,26 @@
 
 namespace p3d {
 
-Renderable object_as_renderable(Object * object){
-    return (Renderable){.renderableType = RENDERABLE_OBJECT, .impl = object};
+// Constructor to initialize Object
+Object::Object(Mesh* mesh, Material* material)
+    : Transformable(),  // Call the base constructor for Transformable
+      mesh(mesh),
+      material(material),
+      tex_indices(nullptr),
+      textCoord(nullptr)
+{
+    this->scale = {1.0f, 1.0f, 1.0f};  // Default scale
+    this->rotation = {0.0f, 0.0f, 0.0f};  // Default rotation
+    this->translation = {0.0f, 0.0f, 0.0f};  // Default translation
+    compute_transformation_matrix(*this);  // Initialize the transformation matrix
+}
+
+// Method to convert Object to Renderable
+Renderable Object::as_renderable() {
+    Renderable renderable;
+    renderable.renderableType = RENDERABLE_OBJECT;
+    renderable.impl = static_cast<void*>(this);
+    return renderable;
 }
 
 } // namespace p3d
