@@ -26,7 +26,7 @@ struct P3DCtl {
     VDUStreamProcessor* m_proc;                 // Used by subcommands to obtain more data
     // p3d::BackEnd        m_backend;              // Used by the renderer
     // p3d::Pixel*         m_frame;                // Frame buffer for rendered pixels
-    p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
+    // p3d::PingoDepth*    m_zeta;                 // Zeta buffer for depth information
     uint16_t            m_width;                // Width of final render in pixels
     uint16_t            m_height;               // Height of final render in pixels
     // Transformable       m_camera;               // Camera transformation settings
@@ -58,9 +58,9 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     m_width = w;
     m_height = h;
 
-    int size = 0;
-    int frame_size = m_width * m_height;
-    m_zeta = p3d::depth_buffer_create(frame_size);
+    // int size = 0;
+    // int frame_size = m_width * m_height;
+    // m_zeta = p3d::depth_buffer_create(frame_size);
 
     m_lastc = 0;
     // p3d::test_vec2f_operations();
@@ -86,8 +86,8 @@ void color_screen() {
             c |= 0b11000000;
             bitmap->setPixel(x, y, fabgl::RGBA2222(c));
             c++;
-            int idx = (y * m_width) + x;
-            p3d::depth_write(m_zeta, idx, (float) idx);
+            // int idx = (y * m_width) + x;
+            // p3d::depth_write(m_zeta, idx, (float) idx);
         }
     }
 }

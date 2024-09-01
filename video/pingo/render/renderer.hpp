@@ -1,9 +1,16 @@
 #pragma once
 
+#include <cstring>
+#include <cstdio>
+
 #include <displaycontroller.h>
 
-#include "renderable.hpp"
 #include "../math/vec4.hpp"
+#include "renderable.hpp"
+#include "depth.hpp"
+#include "scene.hpp"
+#include "rasterizer.hpp"
+#include "object.hpp"
 
 namespace p3d {
 
@@ -18,6 +25,8 @@ struct Renderer{
 
     Mat4 camera_projection;
     Mat4 camera_view;
+
+    PingoDepth*    z_buffer;
 };
 
 extern int rendererRender(Renderer *);
