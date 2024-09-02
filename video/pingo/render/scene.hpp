@@ -6,27 +6,14 @@
 #include "../math/mat3.hpp"
 #include "../math/mat4.hpp"
 
-struct Transformable;
-struct Renderable;
-
 namespace p3d {
 
 #define MAX_SCENE_RENDERABLES 32
 
-struct Scene {
+struct Scene : public Transformable {  // Scene inherits from Transformable
     uint16_t sid;  // Scene ID
-    // Transformable stuff
-    Vec3f scale;
-    Vec3f rotation;
-    Vec3f translation;
-    Mat4 transform;
-    bool modified;
-    Vec3f rotation_loc;
-    Vec3f translation_loc;
-    bool modified_loc;
-    bool is_camera;
 
-    // Scene stuff
+    // Scene-specific members
     uint8_t numberOfRenderables;
     Renderable renderables[MAX_SCENE_RENDERABLES];
     uint8_t visible;
@@ -35,14 +22,15 @@ struct Scene {
     Scene(uint16_t sid);
 };
 
-extern int sceneInit(Scene * s);
-extern int sceneAddRenderable(Scene * scene, Renderable renderable);
+// Function prototypes for Scene operations
 
-extern Renderable sceneAsRenderable(Scene * scene);
+// Initializes the scene
+extern int sceneInit(Scene* s);
 
-extern int sceneInit(Scene * scene);
-extern int sceneAddRenderable(Scene * scene, Renderable renderable);
+// Adds a Renderable to the Scene
+extern int sceneAddRenderable(Scene* scene, Renderable renderable);
 
-extern Renderable sceneAsRenderable(Scene * scene);
+// Converts a Scene to a Renderable
+extern Renderable sceneAsRenderable(Scene* scene);
 
 } // namespace p3d

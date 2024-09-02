@@ -773,9 +773,12 @@ void render_to_bitmap() {
         p3d::sceneAddRenderable(&m_scene, texObj.texObject_as_renderable());
     }
 
-    // if (m_scene.modified) {
-    //     m_scene.compute_transformation_matrix(m_scene);
-    // }
+    if (m_scene.modified) {
+        p3d::compute_transformation_matrix(m_scene);
+    }
+    if (m_scene.modified_loc) {
+        p3d::compute_transformation_matrix_local(m_scene);
+    }
 
     //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
     //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
