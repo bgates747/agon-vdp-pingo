@@ -1,5 +1,4 @@
 #include "renderer.hpp"
-
 namespace p3d {
 
 // Renderer constructor
@@ -239,7 +238,7 @@ int rendererRender(Renderer * r) {
     memset(r->z_buffer, 0, numpixels * sizeof (PingoDepth));
 
     if (r->clear == 1) {
-        uint8_t packedColor = r->clearColor.RGBA2222toUint8();
+        uint8_t packedColor = p3d::RGBA2222ToUint8(r->clearColor);
         memset(r->frameBuffer, packedColor, numpixels * sizeof(fabgl::RGBA2222));
     }
 

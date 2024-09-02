@@ -5,6 +5,7 @@
 
 #include <displaycontroller.h>
 
+#include "../math/helpers.hpp"
 #include "../math/vec4.hpp"
 #include "renderable.hpp"
 #include "depth.hpp"

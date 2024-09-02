@@ -103,7 +103,7 @@ void color_screen() {
     for (int y = 0; y < m_height; y++) {
         for (int x = 0; x < m_width; x++) {
             c |= 0b11000000;
-            bitmap->setPixel(x, y, fabgl::RGBA2222(c));
+            bitmap->setPixel(x, y, p3d::uint8ToRGBA2222(c));
             c++;
         }
     }
