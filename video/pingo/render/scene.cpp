@@ -3,6 +3,15 @@
 
 namespace p3d {
 
+// Constructor to initialize Scene
+Scene::Scene(uint16_t sid)
+    : sid(sid),  // Initialize Scene ID
+    numberOfRenderables(0),  // Initialize number of renderables
+    visible(1)  // Initialize visibility flag
+{
+    this->is_camera = false;
+}
+
 int sceneAddRenderable(Scene * scene, Renderable renderable) {
     if (scene->numberOfRenderables >= MAX_SCENE_RENDERABLES) {
         return 1; //Too many renderables in this scene

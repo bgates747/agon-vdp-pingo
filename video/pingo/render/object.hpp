@@ -18,6 +18,7 @@ struct Object : public Transformable {
     Object(uint16_t oid);
 };
 
+// TexObject struct inheriting from Object
 struct TexObject : public Object {
     Mesh* mesh;                // Pointer to the Mesh associated with the Object
     fabgl::Bitmap* texture;    // Pointer to the texture bitmap used by the Object
@@ -28,7 +29,7 @@ struct TexObject : public Object {
     TexObject(uint16_t oid, Mesh* mesh, fabgl::Bitmap* texture, uint16_t* tex_indices, Vec2f* textCoord);
 
     // Method to convert Object to Renderable
-    Renderable as_renderable();
+    Renderable texObject_as_renderable();
 };
 
 } // namespace p3d

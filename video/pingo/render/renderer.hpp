@@ -27,8 +27,31 @@ struct Renderer {
     fabgl::Bitmap* background;       // Background image used to clear framebuffer before rendering
 
     // Constructor
-    Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height,
-             fabgl::RGBA2222 clearColor = {0x00}, int clear = 1);
+    Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear);
 };
+
+// Function to render a textured object
+int renderTexObject(Mat4 object_transform, Renderer* r, Renderable ren);
+
+// Function to render the entire scene using a specific Renderer
+int rendererRender(Renderer* r);
+
+// Function to render a Renderable using a specific Renderer and transformation matrix
+void renderRenderable(Mat4 transform, Renderer* r, Renderable ren);
+
+// Function to render a Scene using a specific Renderer and transformation matrix
+int renderScene(Mat4 transform, Renderer* r, Renderable ren);
+
+// Function to compute the edge function for three points (for triangle rasterization)
+int edgeFunction(const Vec2f* a, const Vec2f* b, const Vec2f* c);
+
+// Function to check if three points form a clockwise turn
+float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3);
+
+// Function to compute the orientation of three 2D points (returns >0 for counterclockwise, 0 for collinear, <0 for clockwise)
+int orient2d(Vec2i a, Vec2i b, Vec2i c);
+
+// Function to draw a pixel in the framebuffer using a Renderer, a Bitmap, and a color with illumination
+void backendDrawPixel(Renderer* r, fabgl::Bitmap* f, Vec2i pos, fabgl::RGBA2222 color, float illumination);
 
 } // namespace p3d

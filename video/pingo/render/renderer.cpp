@@ -3,8 +3,7 @@
 namespace p3d {
 
 // Renderer constructor
-Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height,
-                   fabgl::RGBA2222 clearColor, int clear)
+Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear)
     : scene(scene),
       camera(camera),
       frameBuffer(nullptr),         // Set default to nullptr
@@ -12,8 +11,18 @@ Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height
       z_buffer(new PingoDepth[width * height]),  // Create z_buffer using width and height
       clear(clear),
       clearColor(clearColor) {
-    // Additional initialization can be added here if necessary
+        // renderingFunctions[RENDERABLE_SPRITE] = & renderSprite; // TODO: Implement when needed
+        renderingFunctions[RENDERABLE_SCENE] = & renderScene;
+        renderingFunctions[RENDERABLE_TEXOBJECT] = & renderTexObject;
 }
+
+// DEPRECATED
+// int rendererInit(Renderer * r, Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear) {
+//     r->scene = 0;
+//     r->clear = 1;
+//     r->clearColor = clearColor;
+//     return 0;
+// }
 
 void renderRenderable(Mat4 transform, Renderer * r, Renderable ren) {
     renderingFunctions[ren.renderableType](transform, r, ren);
@@ -53,7 +62,7 @@ void backendDrawPixel (Renderer * r, fabgl::Bitmap * f, Vec2i pos, fabgl::RGBA22
     f->setPixel(pos.x, pos.y, color);
 }
 
-int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
+int renderTexObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     Camera * camera = r->camera;
     fabgl::Bitmap frameBuffer = *r->frameBuffer;
     const Vec2i scrSize = {frameBuffer.width, frameBuffer.height};
@@ -225,54 +234,35 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-int rendererInit(Renderer * r, Vec2i size, fabgl::RGBA2222 clearColor) {
-    // renderingFunctions[RENDERABLE_SPRITE] = & renderSprite; // TODO: Implement when needed
-    renderingFunctions[RENDERABLE_SCENE] = & renderScene;
-    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
-
-    r->scene = 0;
-    r->clear = 1;
-    r->clearColor = clearColor;
-
-    return 0;
-}
-
 int rendererRender(Renderer * r) {
+    int numpixels = r->frameBuffer->height * r->frameBuffer->width;
+    memset(r->z_buffer, 0, numpixels * sizeof (PingoDepth));
 
-    // int pixels = scrSize.x * scrSize.y;
-    // memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
-
-    // r->backEnd->beforeRender(r, r->backEnd);
-
-    // //get current framebuffe from backend
-    // frameBuffer.frameBuffer = r->backEnd->getFrameBuffer(r, r->backEnd);
-
-    // //Clear draw buffer before rendering
-    // if (r->clear) {
-    //     memset(r->backEnd->getFrameBuffer(r,r->backEnd), 0, pixels * sizeof (fabgl::RGBA2222));
-    // }
+    if (r->clear == 1) {
+        uint8_t packedColor = r->clearColor.RGBA2222toUint8();
+        memset(r->frameBuffer, packedColor, numpixels * sizeof(fabgl::RGBA2222));
+    }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
-
-    // r->backEnd->afterRender(r, r->backEnd);
-
     return 0;
 }
 
-int rendererSetScene(Renderer * r, Scene * scene) {
-    if (scene == 0)
-        return 1; //nullptr scene
+// DEPRECATED
+// int rendererSetScene(Renderer * r, Scene * scene) {
+//     if (scene == 0)
+//         return 1; //nullptr scene
 
-    r->scene = scene;
-    return 0;
-}
+//     r->scene = scene;
+//     return 0;
+// }
 
-int rendererSetCamera(Renderer * r, Vec4i rect) {
-    // r->camera = rect;
-    // r->backEnd->init(r, r->backEnd, rect);
-    // scrSize = (Vec2i) {rect.z, rect.w};
-    return 0;
-}
+// DEPRECATED
+// int rendererSetCamera(Renderer * r, Vec4i rect) {
+//     r->camera = rect;
+//     r->backEnd->init(r, r->backEnd, rect);
+//     scrSize = (Vec2i) {rect.z, rect.w};
+//     return 0;
+// }
 
 
 

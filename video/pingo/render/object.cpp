@@ -19,16 +19,14 @@ TexObject::TexObject(uint16_t oid, Mesh* mesh, fabgl::Bitmap* texture, uint16_t*
       mesh(mesh), 
       texture(texture), 
       tex_indices(tex_indices), 
-      textCoord(textCoord) {
-        this->is_camera = false;  // Not a camera
-      }
+      textCoord(textCoord) 
+{
+    this->is_camera = false;
+}
 
 // Method to convert TexObject to Renderable
-Renderable TexObject::as_renderable() {
-    Renderable renderable;
-    renderable.renderableType = RENDERABLE_OBJECT;
-    renderable.impl = static_cast<void*>(this);
-    return renderable;
+Renderable TexObject::texObject_as_renderable() {
+    return Renderable{RENDERABLE_TEXOBJECT, this};
 }
 
 } // namespace p3d

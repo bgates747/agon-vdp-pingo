@@ -9,7 +9,7 @@ class Renderer;
 enum RenderableType {
     RENDERABLE_SCENE = 0,
     RENDERABLE_SPRITE,
-    RENDERABLE_OBJECT,
+    RENDERABLE_TEXOBJECT,
     RENDERABLE_COUNT,
 };
 
