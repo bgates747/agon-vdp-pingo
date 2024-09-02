@@ -5,23 +5,15 @@ namespace p3d {
 Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear)
     : scene(scene),
       camera(camera),
-      frameBuffer(nullptr),         // Set default to nullptr
-      background(nullptr),          // Set default to nullptr
-      z_buffer(new PingoDepth[width * height]),  // Create z_buffer using width and height
+      frameBuffer(nullptr),
+      background(nullptr),
+      z_buffer(nullptr),
       clear(clear),
       clearColor(clearColor) {
         // renderingFunctions[RENDERABLE_SPRITE] = & renderSprite; // TODO: Implement when needed
         renderingFunctions[RENDERABLE_SCENE] = & renderScene;
         renderingFunctions[RENDERABLE_TEXOBJECT] = & renderTexObject;
 }
-
-// DEPRECATED
-// int rendererInit(Renderer * r, Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear) {
-//     r->scene = 0;
-//     r->clear = 1;
-//     r->clearColor = clearColor;
-//     return 0;
-// }
 
 void renderRenderable(Mat4 transform, Renderer * r, Renderable ren) {
     renderingFunctions[ren.renderableType](transform, r, ren);

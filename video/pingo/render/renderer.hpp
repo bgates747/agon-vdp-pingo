@@ -31,17 +31,17 @@ struct Renderer {
     Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear);
 };
 
-// Function to render a textured object
-int renderTexObject(Mat4 object_transform, Renderer* r, Renderable ren);
-
 // Function to render the entire scene using a specific Renderer
 int rendererRender(Renderer* r);
+
+// Function to render a Scene using a specific Renderer and transformation matrix
+int renderScene(Mat4 transform, Renderer* r, Renderable ren);
 
 // Function to render a Renderable using a specific Renderer and transformation matrix
 void renderRenderable(Mat4 transform, Renderer* r, Renderable ren);
 
-// Function to render a Scene using a specific Renderer and transformation matrix
-int renderScene(Mat4 transform, Renderer* r, Renderable ren);
+// Function to render a textured object
+int renderTexObject(Mat4 object_transform, Renderer* r, Renderable ren);
 
 // Function to compute the edge function for three points (for triangle rasterization)
 int edgeFunction(const Vec2f* a, const Vec2f* b, const Vec2f* c);

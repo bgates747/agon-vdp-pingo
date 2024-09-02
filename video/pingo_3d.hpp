@@ -70,7 +70,8 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     p3d::Camera m_camera(p3d::mat4Identity(), fieldOfView, aspectRatio, nearClippingPlane, farClippingPlane);
 
     fabgl::RGBA2222 clearColor = {0,0,0,0};
-    p3d::Renderer renderer(&m_scene, &m_camera, m_width, m_width, clearColor, 1);
+    p3d::Renderer m_renderer(&m_scene, &m_camera, m_width, m_width, clearColor, 1);
+    m_renderer.z_buffer = p3d::depth_buffer_create(m_width * m_height);
 
     m_meshes = new std::map<uint16_t, p3d::Mesh>;
     m_objects = new std::map<uint16_t, p3d::TexObject>;
@@ -779,6 +780,8 @@ void render_to_bitmap() {
     if (m_scene.modified_loc) {
         p3d::compute_transformation_matrix_local(m_scene);
     }
+
+    p3d::rendererRender(&m_renderer);
 
     //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
     //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
