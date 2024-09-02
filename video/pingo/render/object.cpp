@@ -14,12 +14,14 @@ Object::Object(uint16_t oid)
 }
 
 // Constructor to initialize TexObject
-TexObject::TexObject(Mesh* mesh, Material* material, uint16_t oid) 
-    : Object(oid),  // Call the base constructor for Object
-      mesh(mesh),
-      material(material),
-      tex_indices(nullptr),
-      textCoord(nullptr) {}
+TexObject::TexObject(uint16_t oid, Mesh* mesh, fabgl::Bitmap* texture, uint16_t* tex_indices, Vec2f* textCoord)
+    : Object(oid), 
+      mesh(mesh), 
+      texture(texture), 
+      tex_indices(tex_indices), 
+      textCoord(textCoord) {
+        this->is_camera = false;  // Not a camera
+      }
 
 // Method to convert TexObject to Renderable
 Renderable TexObject::as_renderable() {

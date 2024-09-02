@@ -129,12 +129,6 @@ void compute_transformation_matrix_local(Transformable& t) {
     t.modified_loc = false;
 }
 
-void update_transformation(Transformable& t) {
-    if (t.modified) {
-        compute_transformation_matrix(t);
-    }
-}
-
 void dump(const Transformable& t) {
     for (int i = 0; i < 16; i++) {
         std::printf("        [%i] %f\n", i, t.transform.elements[i]);

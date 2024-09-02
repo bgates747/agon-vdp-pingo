@@ -48,9 +48,9 @@ push_a_button: db "Press any key to continue.",0
 ; end application includes
 
 ; control includes
-    include "inputtest.inc"
+    ; include "inputtest.inc"
     ; include "inputcam.inc"
-    ; include "inputobj.inc"
+    include "inputobj.inc"
     ; include "inputair.inc"
 ; end control includes
 
@@ -60,7 +60,7 @@ push_a_button: db "Press any key to continue.",0
     ; include "crash.inc"
     ; include "LaraCroft.inc"
     ; include "cube.inc"
-    ; include "tri.inc"
+    include "tri.inc"
     ; include "heavytank.inc"
     ; include "wolf_map.inc"
     ; include "earthuv.inc"
@@ -105,21 +105,21 @@ main:
 ccs:
     CCS sid, cstw, csth
 
-; ; create mesh vertices
-; sv:
-;     SV sid, mid, model_vertices, model_vertices_n
+; create mesh vertices
+sv:
+    SV sid, mid, model_vertices, model_vertices_n
 
-; ; create mesh vertex indices
-; smvi:
-;     SMVI sid, mid, model_vertex_indices, model_indices_n
+; create mesh vertex indices
+smvi:
+    SMVI sid, mid, model_vertex_indices, model_indices_n
 
-; ; create texture coordinates
-; stc:
-;     STC sid, oid, model_uvs, model_uvs_n
+; create texture coordinates
+stc:
+    STC sid, oid, model_uvs, model_uvs_n
 
-; ; create texture coordinate indices
-; stci:
-;     STCI sid, oid, model_uv_indices, model_indices_n
+; create texture coordinate indices
+stci:
+    STCI sid, oid, model_uv_indices, model_indices_n
 
 ; ; create normals
 ; sn:

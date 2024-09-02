@@ -40,9 +40,6 @@ void compute_transformation_matrix(Transformable& t);
 // Computes the local transformation matrix for a Transformable
 void compute_transformation_matrix_local(Transformable& t);
 
-// Updates the transformation matrix if it has been modified
-void update_transformation(Transformable& t);
-
 // Dumps the current state of a Transformable to the console (for debugging)
 void dump(const Transformable& t);
 

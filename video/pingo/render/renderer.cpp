@@ -61,7 +61,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     float halfY = scrSize.y / 2.0f;
     TexObject* o = static_cast<TexObject*>(ren.impl);
     Vec2f* tex_coords = o->textCoord;
-    fabgl::Bitmap* texture = o->material->texture;
+    fabgl::Bitmap* texture = o->texture;
     Vec2i tex_size = {texture->width, texture->height};
     PingoDepth * z_buffer = r->z_buffer;
 
@@ -81,7 +81,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         Vec2f tcb = {0,0};
         Vec2f tcc = {0,0};
 
-        if (o->material != 0) {
+        if (texture != 0) {
             tca = tex_coords[o->tex_indices[i+0]];
             tcb = tex_coords[o->tex_indices[i+1]];
             tcc = tex_coords[o->tex_indices[i+2]];
@@ -163,7 +163,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         int32_t w1_row = orient2d( c_s, a_s, minTriangle);
         int32_t w2_row = orient2d( a_s, b_s, minTriangle);
 
-        if (o->material != 0) {
+        if (texture != 0) {
             tca.x /= a.z;
             tca.y /= a.z;
             tcb.x /= b.z;
@@ -197,7 +197,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
                 // Invert the y-coordinate for screen space
                 int32_t inverted_y = scrSize.y - y - 1;
 
-                if (o->material != 0) {
+                if (texture != 0) {
                     // Texture lookup
                     int u = static_cast<int>(-(w0 * tca.x + w1 * tcb.x + w2 * tcc.x) * areaInverse * depth);
                     int v = static_cast<int>(-(w0 * tca.y + w1 * tcb.y + w2 * tcc.y) * areaInverse * depth);
