@@ -22,7 +22,7 @@ std::unordered_map<uint16_t, ContextVectorPtr,
 	psram_allocator<std::pair<const uint16_t, ContextVectorPtr>>> contextStacks;
 
 class VDUStreamProcessor {
-	private:
+	public:
 		std::shared_ptr<Stream> inputStream;
 		std::shared_ptr<Stream> outputStream;
 		std::shared_ptr<Stream> originalOutputStream;
@@ -33,11 +33,9 @@ class VDUStreamProcessor {
 
 		bool commandsEnabled = true;
 
-		// Moved to public for Pingo
-		// int16_t readByte_t(uint16_t timeout);
-		// int32_t readWord_t(uint16_t timeout);
-		// int32_t read24_t(uint16_t timeout);
-		// End of moved to public for Pingo
+		int16_t readByte_t(uint16_t timeout);
+		int32_t readWord_t(uint16_t timeout);
+		int32_t read24_t(uint16_t timeout);
 		uint8_t readByte_b();
 		uint32_t readIntoBuffer(uint8_t * buffer, uint32_t length, uint16_t timeout);
 		uint32_t discardBytes(uint32_t length, uint16_t timeout);
@@ -144,7 +142,6 @@ class VDUStreamProcessor {
 		void receiveFirmware();
 		void switchFirmware();
 
-	public:
 		uint16_t id = 65535;
 
 		VDUStreamProcessor(std::shared_ptr<Context> _context, std::shared_ptr<Stream> input, std::shared_ptr<Stream> output, uint16_t bufferId) :
@@ -161,11 +158,7 @@ class VDUStreamProcessor {
 				contextStack->push_back(context);
 			}
 
-		int16_t readByte_t(uint16_t timeout);
-		int32_t readWord_t(uint16_t timeout);
-		int32_t read24_t(uint16_t timeout);
-
-				inline bool byteAvailable() {
+		inline bool byteAvailable() {
 			return inputStream->available() > 0;
 		}
 		inline uint8_t readByte() {
