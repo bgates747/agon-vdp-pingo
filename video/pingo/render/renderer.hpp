@@ -28,7 +28,7 @@ struct Renderer {
     fabgl::Bitmap* background;       // Background image used to clear framebuffer before rendering
 
     // Constructor
-    Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear);
+    Renderer(Scene* scene, Camera* camera, PingoDepth* z_buffer, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear);
 };
 
 // Function to render the entire scene using a specific Renderer

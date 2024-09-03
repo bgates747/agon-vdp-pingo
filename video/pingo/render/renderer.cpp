@@ -2,68 +2,109 @@
 namespace p3d {
 
 // Renderer constructor
-Renderer::Renderer(Scene* scene, Camera* camera, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear)
+Renderer::Renderer(Scene* scene, Camera* camera, PingoDepth* z_buffer, uint16_t width, uint16_t height, fabgl::RGBA2222 clearColor, int clear)
     : scene(scene),
-      camera(camera),
-      frameBuffer(nullptr),
-      background(nullptr),
-      z_buffer(nullptr),
-      clear(clear),
-      clearColor(clearColor) {
+    camera(camera),
+    frameBuffer(nullptr),
+    background(nullptr),
+    z_buffer(z_buffer),
+    clear(clear),
+    clearColor(clearColor) {
         // renderingFunctions[RENDERABLE_SPRITE] = & renderSprite; // TODO: Implement when needed
         renderingFunctions[RENDERABLE_SCENE] = & renderScene;
         renderingFunctions[RENDERABLE_TEXOBJECT] = & renderTexObject;
 }
 
-void renderRenderable(Mat4 transform, Renderer * r, Renderable ren) {
-    renderingFunctions[ren.renderableType](transform, r, ren);
-};
-
-int renderScene(Mat4 transform, Renderer* r, Renderable ren) {
-    Scene* scene = static_cast<Scene*>(ren.impl);
-    
-    if (!scene->visible)
-        return 0;
-
-    // Apply hierarchy transform
-    Mat4 newTransform = mat4MultiplyM(&scene->transform, &transform);
-    for (int i = 0; i < scene->numberOfRenderables; i++) {
-        renderRenderable(newTransform, r, scene->renderables[i]);
-    }
-    return 0;
-}
-
 #define MIN(a, b)(((a) < (b)) ? (a) : (b))
 #define MAX(a, b)(((a) > (b)) ? (a) : (b))
 
-int edgeFunction(const Vec2f * a, const Vec2f * b, const Vec2f * c) {
-    return (c->x - a->x) * (b->y - a->y) - (c->y - a->y) * (b->x - a->x);
+#include <cstdio>  // Include for printf
+
+int rendererRender(Renderer* r) {
+    std::printf("rendererRender: Starting rendering\n");
+
+    int numpixels = r->frameBuffer->height * r->frameBuffer->width;
+    std::printf("rendererRender: numpixels = %d\n", numpixels);
+
+    std::printf("rendererRender z_buffer: Pointer = %p\n", static_cast<void*>(r->z_buffer));
+    memset(r->z_buffer, 0, numpixels * sizeof(PingoDepth));
+    std::printf("rendererRender: Cleared z_buffer\n");
+
+    if (r->clear == 1) {
+        uint8_t packedColor = p3d::RGBA2222ToUint8(r->clearColor);
+        std::printf("rendererRender: Packed clearColor to %u\n", packedColor);
+
+        memset(r->frameBuffer, packedColor, numpixels * sizeof(fabgl::RGBA2222));
+        std::printf("rendererRender: Cleared frameBuffer with color %u\n", packedColor);
+    }
+
+    renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
+    std::printf("rendererRender: Finished rendering scene\n");
+
+    return 0;
 }
 
-float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
-    return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
+int renderScene(Mat4 transform, Renderer* r, Renderable ren) {
+    std::printf("renderScene: Starting scene rendering\n");
+
+    Scene* scene = static_cast<Scene*>(ren.impl);
+    std::printf("renderScene: Scene pointer = %p\n", static_cast<void*>(scene));
+
+    if (!scene->visible) {
+        std::printf("renderScene: Scene is not visible, skipping rendering\n");
+        return 0;
+    }
+
+    // Apply hierarchy transform
+    Mat4 newTransform = mat4MultiplyM(&scene->transform, &transform);
+    std::printf("renderScene: Computed newTransform matrix\n");
+
+    for (int i = 0; i < scene->numberOfRenderables; i++) {
+        std::printf("renderScene: Rendering renderable %d of %d\n", i + 1, scene->numberOfRenderables);
+        renderRenderable(newTransform, r, scene->renderables[i]);
+    }
+
+    std::printf("renderScene: Finished rendering scene\n");
+    return 0;
 }
 
-int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
-{
-    return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
-}
-
-void backendDrawPixel (Renderer * r, fabgl::Bitmap * f, Vec2i pos, fabgl::RGBA2222 color, float illumination) {
-    f->setPixel(pos.x, pos.y, color);
+void renderRenderable(Mat4 transform, Renderer* r, Renderable ren) {
+    std::printf("renderRenderable: Starting to render renderable of type %d\n", ren.renderableType);
+    renderingFunctions[ren.renderableType](transform, r, ren);
+    std::printf("renderRenderable: Finished rendering renderable\n");
 }
 
 int renderTexObject(Mat4 object_transform, Renderer * r, Renderable ren) {
-    Camera * camera = r->camera;
+    printf("Rendering textured object\n");
+    Camera* camera = r->camera;
+    std::printf("Camera: %p\n", static_cast<void*>(camera));
+
     fabgl::Bitmap frameBuffer = *r->frameBuffer;
+    std::printf("frameBuffer: %p (width: %d, height: %d)\n", static_cast<void*>(&frameBuffer), frameBuffer.width, frameBuffer.height);
+
     const Vec2i scrSize = {frameBuffer.width, frameBuffer.height};
+    std::printf("scrSize: (%d, %d)\n", scrSize.x, scrSize.y);
+
     float halfX = scrSize.x / 2.0f;
+    std::printf("halfX: %f\n", halfX);
+
     float halfY = scrSize.y / 2.0f;
+    std::printf("halfY: %f\n", halfY);
+
     TexObject* o = static_cast<TexObject*>(ren.impl);
+    std::printf("TexObject: %p\n", static_cast<void*>(o));
+
     Vec2f* tex_coords = o->textCoord;
+    std::printf("tex_coords: %p\n", static_cast<void*>(tex_coords));
+
     fabgl::Bitmap* texture = o->texture;
+    std::printf("texture: %p (width: %d, height: %d)\n", static_cast<void*>(texture), texture->width, texture->height);
+
     Vec2i tex_size = {texture->width, texture->height};
-    PingoDepth * z_buffer = r->z_buffer;
+    std::printf("tex_size: (%d, %d)\n", tex_size.x, tex_size.y);
+
+    PingoDepth* z_buffer = r->z_buffer;
+    std::printf("z_buffer: %p\n", static_cast<void*>(z_buffer));
 
     // MODEL MATRIX
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
@@ -225,18 +266,25 @@ int renderTexObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-int rendererRender(Renderer * r) {
-    int numpixels = r->frameBuffer->height * r->frameBuffer->width;
-    memset(r->z_buffer, 0, numpixels * sizeof (PingoDepth));
+// HELPER FUNCTIONS
 
-    if (r->clear == 1) {
-        uint8_t packedColor = p3d::RGBA2222ToUint8(r->clearColor);
-        memset(r->frameBuffer, packedColor, numpixels * sizeof(fabgl::RGBA2222));
-    }
-
-    renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
-    return 0;
+int edgeFunction(const Vec2f * a, const Vec2f * b, const Vec2f * c) {
+    return (c->x - a->x) * (b->y - a->y) - (c->y - a->y) * (b->x - a->x);
 }
+
+float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
+    return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
+}
+
+int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
+{
+    return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
+}
+
+// // TODO: IMPLEMENT THIS FOR ILLUMINATION
+// void backendDrawPixel (Renderer * r, fabgl::Bitmap * f, Vec2i pos, fabgl::RGBA2222 color, float illumination) {
+//     f->setPixel(pos.x, pos.y, color);
+// }
 
 // DEPRECATED
 // int rendererSetScene(Renderer * r, Scene * scene) {

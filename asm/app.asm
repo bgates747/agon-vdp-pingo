@@ -93,13 +93,14 @@ main:
 ;     call printString
 ;     call waitKeypress
 
-; ; load texture file to a buffer and make it a bitmap
-;     ld bc,model_texture_width
-;     ld de,model_texture_height
-;     ld hl,objbmid
-;     ld ix,model_texture_size
-;     ld iy,model_texture
-;     call vdu_load_img_rgba2_to_8
+; load texture file to a buffer and make it a bitmap
+    ld bc,model_texture_width
+    ld de,model_texture_height
+    ld hl,objbmid
+    ld ix,model_texture_size
+    ld iy,model_texture
+    ld a,1 ; rgba2222
+    call vdu_load_img
     
 ; create control structure
 ccs:
@@ -129,22 +130,22 @@ stci:
 ; smni:
 ;     SMNI sid, mid, model_normal_indices, model_indices_n
 
-; create render target bitmap
-ctb:
-    CTB tgtbmid, cstw, csth
+; create render target bitmap rgba2222 format
+ctb2:
+    CTB2 tgtbmid, cstw, csth
 
-; ; create object
-; co:
-;     CO sid, oid, mid, objbmid
+; create object
+co:
+    CO sid, oid, mid, objbmid
 
-; ; set object scale
-; so:
-;     SO sid, oid, obj_scale, obj_scale, obj_scale
+; set object scale
+so:
+    SO sid, oid, obj_scale, obj_scale, obj_scale
 
-; ; set dithering type
-;     ld a,(dithering_type)
-;     ld hl,sid
-;     call vdu_set_dither
+; set dithering type
+    ld a,(dithering_type)
+    ld hl,sid
+    call vdu_set_dither
 
 preloop:
     ld a,8+128 ; 320x240x64 double-buffered
@@ -165,20 +166,20 @@ preloop:
 ; call app special init
     call app_special_init
 
-; ; set initial object position
-;     ; call move_object
-;     ld hl,oid
-;     ld bc,(objx)
-;     ld de,(objy)
-;     ld iy,(objz)
-;     call sodabs
+; set initial object position
+    ; call move_object
+    ld hl,oid
+    ld bc,(objx)
+    ld de,(objy)
+    ld iy,(objz)
+    call sodabs
 
-; ; set initial camera position
-;     ; call move_camera
-;     ld bc,(camx)
-;     ld de,(camy)
-;     ld iy,(camz)
-;     call scdabs
+; set initial camera position
+    ; call move_camera
+    ld bc,(camx)
+    ld de,(camy)
+    ld iy,(camz)
+    call scdabs
 
 ; initialize main loop timer
 main_loop_timer_reset: equ 2 ; 120ths of a second

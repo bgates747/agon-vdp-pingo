@@ -33,6 +33,7 @@ struct P3DCtl {
     uint16_t            m_height;               // Height of final render in pixels
     p3d::Scene          m_scene;                // Scene transformation settings
     p3d::Camera         m_camera;               // Camera transformation settings
+    p3d::PingoDepth*    m_z_buffer;             // Depth buffer for depth information
     p3d::Renderer       m_renderer;             // Renderer settings
     std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
     std::map<uint16_t, p3d::TexObject>* m_objects; // Map of textured objects that use meshes and have transforms
@@ -54,7 +55,7 @@ void show_ram_used() {
 
 // VDU 23, 0, &A0, sid; &49, 0, 1 :  Initialize Control Structure
 void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
-    printf("initialize: pingo creating control structure for %ux%u scene\n", w, h);
+    // printf("initialize: pingo creating control structure for %ux%u scene\n", w, h);
     memset(this, 0, sizeof(P3DCtl));
     m_tag = PINGO_3D_CONTROL_TAG;
     m_size = sizeof(P3DCtl);
@@ -70,8 +71,8 @@ void initialize(VDUStreamProcessor& processor, uint16_t w, uint16_t h) {
     p3d::Camera m_camera(p3d::mat4Identity(), fieldOfView, aspectRatio, nearClippingPlane, farClippingPlane);
 
     fabgl::RGBA2222 clearColor = {0,0,0,0};
-    p3d::Renderer m_renderer(&m_scene, &m_camera, m_width, m_width, clearColor, 1);
-    m_renderer.z_buffer = p3d::depth_buffer_create(m_width * m_height);
+    m_z_buffer = p3d::depth_buffer_create(m_width * m_height);    
+    p3d::Renderer m_renderer(&m_scene, &m_camera, m_z_buffer, m_width, m_width, clearColor, 1);
 
     m_meshes = new std::map<uint16_t, p3d::Mesh>;
     m_objects = new std::map<uint16_t, p3d::TexObject>;
@@ -88,11 +89,60 @@ void handle_subcommand(VDUStreamProcessor& processor, uint8_t subcmd) {
     debug_log("P3D: handle_subcommand(%hu)\n", subcmd);
     m_proc = &processor;
     switch (subcmd) {
-            case 1: define_mesh_vertices(); break;
-            case 2: set_mesh_vertex_indexes(); break;
-            case 3: define_object_texture_coordinates(); break;
-            case 4: set_object_texture_coordinate_indexes(); break;
-            case 5: create_object(); break;
+        case 1: define_mesh_vertices(); break;
+        case 2: set_mesh_vertex_indexes(); break;
+        case 3: define_object_texture_coordinates(); break;
+        case 4: set_object_texture_coordinate_indexes(); break;
+        case 5: create_object(); break;
+
+        case 6: set_object_x_scale_factor(); break;
+        case 7: set_object_y_scale_factor(); break;
+        case 8: set_object_z_scale_factor(); break;
+        case 9: set_object_xyz_scale_factors(); break;
+
+        case 10: set_object_x_rotation_angle(); break;
+        case 11: set_object_y_rotation_angle(); break;
+        case 12: set_object_z_rotation_angle(); break;
+        case 13: set_object_xyz_rotation_angles(); break;
+        case 141: set_object_xyz_rotation_angles_local(); break;
+
+        case 14: set_object_x_translation_distance(); break;
+        case 15: set_object_y_translation_distance(); break;
+        case 16: set_object_z_translation_distance(); break;
+        case 17: set_object_xyz_translation_distances(); break;
+        case 145: set_object_xyz_translation_distances_local(); break;
+
+        case 18: set_camera_x_rotation_angle(); break;
+        case 19: set_camera_y_rotation_angle(); break;
+        case 20: set_camera_z_rotation_angle(); break;
+        case 21: set_camera_xyz_rotation_angles(); break;
+        case 149: set_camera_xyz_rotation_angles_local(); break;
+        case 42: camera_track_object(); break;
+
+        case 22: set_camera_x_translation_distance(); break;
+        case 23: set_camera_y_translation_distance(); break;
+        case 24: set_camera_z_translation_distance(); break;
+        case 25: set_camera_xyz_translation_distances(); break;
+        case 153: set_camera_xyz_translation_distances_local(); break;
+
+        case 26: set_scene_x_scale_factor(); break;
+        case 27: set_scene_y_scale_factor(); break;
+        case 28: set_scene_z_scale_factor(); break;
+        case 29: set_scene_xyz_scale_factors(); break;
+
+        case 30: set_scene_x_rotation_angle(); break;
+        case 31: set_scene_y_rotation_angle(); break;
+        case 32: set_scene_z_rotation_angle(); break;
+        case 33: set_scene_xyz_rotation_angles(); break;
+
+        case 34: set_scene_x_translation_distance(); break;
+        case 35: set_scene_y_translation_distance(); break;
+        case 36: set_scene_z_translation_distance(); break;
+        case 37: set_scene_xyz_translation_distances(); break;
+
+        case 38: render_to_bitmap(); break;
+        case 41: set_rendering_dither_type(); break;
+
         case 255: run_tests(); break;
     }
 }
@@ -206,7 +256,7 @@ void define_mesh_vertices() {
             if (!(i & 0x1F)) debug_log("%u %f %f %f\n", i, mesh->positions[i].x, mesh->positions[i].y, mesh->positions[i].z);
         }
         debug_log("\n");
-        printf("Mesh %u: %u vertices\n", mid, n);
+        // printf("Mesh %u: %u vertices\n", mid, n);
     }
 }
 
@@ -234,7 +284,7 @@ void set_mesh_vertex_indexes() {
             if (!(i & 0x1F)) debug_log("%u %hu\n", i, mesh->pos_indices[i]);
         }
         debug_log("\n");
-        printf("Mesh %u: %u indexes\n", mid, n);
+        // printf("Mesh %u: %u indexes\n", mid, n);
     }
 }
 
@@ -260,7 +310,7 @@ void define_object_texture_coordinates() {
             uint16_t v = m_proc->readWord_t();
             object->textCoord[i] = {p3d::convert_texture_coordinate_value(u), 1 - p3d::convert_texture_coordinate_value(v)};
         }
-        printf("Object %u: %u texture coordinates\n", oid, n);
+        // printf("Object %u: %u texture coordinates\n", oid, n);
     }
 }
 
@@ -285,7 +335,7 @@ void set_object_texture_coordinate_indexes() {
             object->tex_indices[i] = m_proc->readWord_t();
             if (!(i & 0x1F)) debug_log("%u %hu\n", i, object->tex_indices[i]);
         }
-        printf("Object %u: %u texture coordinate indexes\n", oid, n);
+        // printf("Object %u: %u texture coordinate indexes\n", oid, n);
     }
 }
 
@@ -296,14 +346,14 @@ void create_object() {
     auto object = get_object(oid);
     auto mesh = get_mesh(mid);
     auto bmid = m_proc->readWord_t();
+    // printf("Creating Object %u: Mesh %u, Bitmap %u\n", oid, mid, bmid);
     if (object && mesh && bmid) {
-        debug_log("Creating 3D object %u with bitmap %u\n", object->oid, bmid);
         auto stored_bitmap = getBitmap(bmid);
         if (stored_bitmap) {
             object->mesh = mesh;
             object->texture = stored_bitmap.get();
         }
-        printf("Object %u: Mesh %u, Bitmap %u\n", oid, mid, bmid);
+        // printf("Object %u Created: Mesh %u, Bitmap %u\n", oid, mid, bmid);
     }
 }
 
@@ -316,6 +366,7 @@ void set_object_x_scale_factor() {
         object->scale.x = p3d::convert_scale_value(value);
         object->modified = true;
     }
+    // printf("Object %u: X scale factor %f\n", oid, object->scale.x);
 }
 
 // VDU 23, 0, &A0, sid; &49, 7, oid; scaley; :  Set Object Y Scale Factor
@@ -327,6 +378,7 @@ void set_object_y_scale_factor() {
         object->scale.y = p3d::convert_scale_value(value);
         object->modified = true;
     }
+    // printf("Object %u: Y scale factor %f\n", oid, object->scale.y);
 }
 
 // VDU 23, 0, &A0, sid; &49, 8, oid; scalez; :  Set Object Z Scale Factor
@@ -338,6 +390,7 @@ void set_object_z_scale_factor() {
         object->scale.z = p3d::convert_scale_value(value);  // Corrected to use 'z' instead of 'y'
         object->modified = true;
     }
+    // printf("Object %u: Z scale factor %f\n", oid, object->scale.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 9, oid; scalex; scaley; scalez :  Set Object XYZ Scale Factors
@@ -353,6 +406,7 @@ void set_object_xyz_scale_factors() {
         object->scale.z = p3d::convert_scale_value(valuez);
         object->modified = true;
     }
+    // printf("Object %u: XYZ scale factors %f %f %f\n", oid, object->scale.x, object->scale.y, object->scale.z);
 }
 // VDU 23, 0, &A0, sid; &49, 10, oid; anglex; :  Set Object X Rotation Angle
 void set_object_x_rotation_angle() {
@@ -363,6 +417,7 @@ void set_object_x_rotation_angle() {
         object->rotation.x = p3d::convert_rotation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: X rotation angle %f\n", oid, object->rotation.x);
 }
 
 // VDU 23, 0, &A0, sid; &49, 11, oid; angley; :  Set Object Y Rotation Angle
@@ -374,6 +429,7 @@ void set_object_y_rotation_angle() {
         object->rotation.y = p3d::convert_rotation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: Y rotation angle %f\n", oid, object->rotation.y);
 }
 
 // VDU 23, 0, &A0, sid; &49, 12, oid; anglez; :  Set Object Z Rotation Angle
@@ -385,6 +441,7 @@ void set_object_z_rotation_angle() {
         object->rotation.z = p3d::convert_rotation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: Z rotation angle %f\n", oid, object->rotation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 13, oid; anglex; angley; anglez; :  Set Object XYZ Rotation Angles
@@ -400,6 +457,7 @@ void set_object_xyz_rotation_angles() {
         object->rotation.z = p3d::convert_rotation_value(valuez);
         object->modified = true;
     }
+    // printf("Object %u: XYZ rotation angles %f %f %f\n", oid, object->rotation.x, object->rotation.y, object->rotation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 141, oid; anglex; angley; anglez; :  Set Object XYZ Rotation Angles Local
@@ -415,6 +473,7 @@ void set_object_xyz_rotation_angles_local() {
         object->rotation_loc.z = p3d::convert_rotation_value(valuez);
         object->modified_loc = true;
     }
+    // printf("Object %u: XYZ rotation angles local %f %f %f\n", oid, object->rotation_loc.x, object->rotation_loc.y, object->rotation_loc.z);
 }
 // VDU 23, 0, &A0, sid; &49, 14, oid; distx; :  Set Object X Translation Distance
 void set_object_x_translation_distance() {
@@ -425,6 +484,7 @@ void set_object_x_translation_distance() {
         object->translation.x = p3d::convert_translation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: X translation distance %f\n", oid, object->translation.x);
 }
 
 // VDU 23, 0, &A0, sid; &49, 15, oid; disty; :  Set Object Y Translation Distance
@@ -436,6 +496,7 @@ void set_object_y_translation_distance() {
         object->translation.y = p3d::convert_translation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: Y translation distance %f\n", oid, object->translation.y);
 }
 
 // VDU 23, 0, &A0, sid; &49, 16, oid; distz; :  Set Object Z Translation Distance
@@ -447,6 +508,7 @@ void set_object_z_translation_distance() {
         object->translation.z = p3d::convert_translation_value(value);
         object->modified = true;
     }
+    // printf("Object %u: Z translation distance %f\n", oid, object->translation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 17, oid; distx; disty; distz :  Set Object XYZ Translation Distances
@@ -462,6 +524,7 @@ void set_object_xyz_translation_distances() {
         object->translation.z = p3d::convert_translation_value(valuez);
         object->modified = true;
     }
+    // printf("Object %u: XYZ translation distances %f %f %f\n", oid, object->translation.x, object->translation.y, object->translation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 145, oid; distx; disty; distz :  Set Object XYZ Translation Distances Local
@@ -477,12 +540,15 @@ void set_object_xyz_translation_distances_local() {
         object->translation_loc.z = p3d::convert_translation_value(valuez);
         object->modified_loc = true;
     }
+    // printf("Object %u: XYZ translation distances local %f %f %f\n", oid, object->translation_loc.x, object->translation_loc.y, object->translation_loc.z);
 }
+
 // VDU 23, 0, &A0, sid; &49, 18, anglex; :  Set Camera X Rotation Angle
 void set_camera_x_rotation_angle() {
     auto value = m_proc->readWord_t();
     m_camera.rotation.x = p3d::convert_rotation_value(value);
     m_camera.modified = true;
+    // printf("Camera: X rotation angle %f\n", m_camera.rotation.x);
 }
 
 // VDU 23, 0, &A0, sid; &49, 19, angley; :  Set Camera Y Rotation Angle
@@ -490,6 +556,7 @@ void set_camera_y_rotation_angle() {
     auto value = m_proc->readWord_t();
     m_camera.rotation.y = p3d::convert_rotation_value(value);
     m_camera.modified = true;
+    // printf("Camera: Y rotation angle %f\n", m_camera.rotation.y);
 }
 
 // VDU 23, 0, &A0, sid; &49, 20, anglez; :  Set Camera Z Rotation Angle
@@ -497,6 +564,7 @@ void set_camera_z_rotation_angle() {
     auto value = m_proc->readWord_t();
     m_camera.rotation.z = p3d::convert_rotation_value(value);
     m_camera.modified = true;
+    // printf("Camera: Z rotation angle %f\n", m_camera.rotation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 21, anglex; angley; anglez; :  Set Camera XYZ Rotation Angles
@@ -508,6 +576,7 @@ void set_camera_xyz_rotation_angles() {
     m_camera.rotation.y = p3d::convert_rotation_value(valuey);
     m_camera.rotation.z = p3d::convert_rotation_value(valuez);
     m_camera.modified = true;
+    // printf("Camera: XYZ rotation angles %f %f %f\n", m_camera.rotation.x, m_camera.rotation.y, m_camera.rotation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 149, anglex; angley; anglez; :  Set Camera XYZ Rotation Angles Local
@@ -519,6 +588,7 @@ void set_camera_xyz_rotation_angles_local() {
     m_camera.rotation_loc.y = p3d::convert_rotation_value(valuey);
     m_camera.rotation_loc.z = p3d::convert_rotation_value(valuez);
     m_camera.modified_loc = true;
+    // printf("Camera: XYZ rotation angles local %f %f %f\n", m_camera.rotation_loc.x, m_camera.rotation_loc.y, m_camera.rotation_loc.z);
 }
 // VDU 23, 0, &A0, sid; &49, 42, oid; : Rotate Camera to track a specified object
 void camera_track_object() {
@@ -576,6 +646,7 @@ void set_camera_x_translation_distance() {
     auto value = m_proc->readWord_t();
     m_camera.translation.x = p3d::convert_translation_value(value);
     m_camera.modified = true;
+    // printf("Camera: X translation distance %f\n", m_camera.translation.x);
 }
 
 // VDU 23, 0, &A0, sid; &49, 23, disty; :  Set Camera Y Translation Distance
@@ -583,6 +654,7 @@ void set_camera_y_translation_distance() {
     auto value = m_proc->readWord_t();
     m_camera.translation.y = p3d::convert_translation_value(value);
     m_camera.modified = true;
+    // printf("Camera: Y translation distance %f\n", m_camera.translation.y);
 }
 
 // VDU 23, 0, &A0, sid; &49, 24, distz; :  Set Camera Z Translation Distance
@@ -590,6 +662,7 @@ void set_camera_z_translation_distance() {
     auto value = m_proc->readWord_t();
     m_camera.translation.z = p3d::convert_translation_value(value);
     m_camera.modified = true;
+    // printf("Camera: Z translation distance %f\n", m_camera.translation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 25, distx; disty; distz :  Set Camera XYZ Translation Distances
@@ -601,6 +674,7 @@ void set_camera_xyz_translation_distances() {
     m_camera.translation.y = p3d::convert_translation_value(valuey);
     m_camera.translation.z = p3d::convert_translation_value(valuez);
     m_camera.modified = true;
+    // printf("Camera: XYZ translation distances %f %f %f\n", m_camera.translation.x, m_camera.translation.y, m_camera.translation.z);
 }
 
 // VDU 23, 0, &A0, sid; &49, 153, distx; disty; distz :  Set Camera XYZ Translation Distances Local
@@ -612,111 +686,124 @@ void set_camera_xyz_translation_distances_local() {
     m_camera.translation_loc.y = p3d::convert_translation_value(valuey);
     m_camera.translation_loc.z = p3d::convert_translation_value(valuez);
     m_camera.modified_loc = true;
+    // printf("Camera: XYZ translation distances local %f %f %f\n", m_camera.translation_loc.x, m_camera.translation_loc.y, m_camera.translation_loc.z);
 }
 
-// // VDU 23, 0, &A0, sid; &49, 26, scalex; :  Set Scene X Scale Factor
-// void set_scene_x_scale_factor() {
-//     auto value = m_proc->readWord_t();
-//     if (value >= 0) {
-//         m_scene.scale.x = p3d::convert_scale_value(value);
-//         m_scene.modified = true;
-//     }
-// }
+// VDU 23, 0, &A0, sid; &49, 26, scalex; :  Set Scene X Scale Factor
+void set_scene_x_scale_factor() {
+    auto value = m_proc->readWord_t();
+    if (value >= 0) {
+        m_scene.scale.x = p3d::convert_scale_value(value);
+        m_scene.modified = true;
+    }
+    // printf("Scene: X scale factor %f\n", m_scene.scale.x);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 27, scaley; :  Set Scene Y Scale Factor
-// void set_scene_y_scale_factor() {
-//     auto value = m_proc->readWord_t();
-//     if (value >= 0) {
-//         m_scene.scale.y = p3d::convert_scale_value(value);
-//         m_scene.modified = true;
-//     }
-// }
+// VDU 23, 0, &A0, sid; &49, 27, scaley; :  Set Scene Y Scale Factor
+void set_scene_y_scale_factor() {
+    auto value = m_proc->readWord_t();
+    if (value >= 0) {
+        m_scene.scale.y = p3d::convert_scale_value(value);
+        m_scene.modified = true;
+    }
+    // printf("Scene: Y scale factor %f\n", m_scene.scale.y);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 28, scalez; :  Set Scene Z Scale Factor
-// void set_scene_z_scale_factor() {
-//     auto value = m_proc->readWord_t();
-//     if (value >= 0) {
-//         m_scene.scale.z = p3d::convert_scale_value(value);
-//         m_scene.modified = true;
-//     }
-// }
+// VDU 23, 0, &A0, sid; &49, 28, scalez; :  Set Scene Z Scale Factor
+void set_scene_z_scale_factor() {
+    auto value = m_proc->readWord_t();
+    if (value >= 0) {
+        m_scene.scale.z = p3d::convert_scale_value(value);
+        m_scene.modified = true;
+    }
+    // printf("Scene: Z scale factor %f\n", m_scene.scale.z);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 29, scalex; scaley; scalez :  Set Scene XYZ Scale Factors
-// void set_scene_xyz_scale_factors() {
-//     auto valuex = m_proc->readWord_t();
-//     auto valuey = m_proc->readWord_t();
-//     auto valuez = m_proc->readWord_t();
-//     if ((valuex >= 0) && (valuey >= 0) && (valuez >= 0)) {
-//         m_scene.scale.x = p3d::convert_scale_value(valuex);
-//         m_scene.scale.y = p3d::convert_scale_value(valuey);
-//         m_scene.scale.z = p3d::convert_scale_value(valuez);
-//         m_scene.modified = true;
-//     }
-// }
+// VDU 23, 0, &A0, sid; &49, 29, scalex; scaley; scalez :  Set Scene XYZ Scale Factors
+void set_scene_xyz_scale_factors() {
+    auto valuex = m_proc->readWord_t();
+    auto valuey = m_proc->readWord_t();
+    auto valuez = m_proc->readWord_t();
+    if ((valuex >= 0) && (valuey >= 0) && (valuez >= 0)) {
+        m_scene.scale.x = p3d::convert_scale_value(valuex);
+        m_scene.scale.y = p3d::convert_scale_value(valuey);
+        m_scene.scale.z = p3d::convert_scale_value(valuez);
+        m_scene.modified = true;
+    }
+    // printf("Scene: XYZ scale factors %f %f %f\n", m_scene.scale.x, m_scene.scale.y, m_scene.scale.z);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 30, anglex; :  Set Scene X Rotation Angle
-// void set_scene_x_rotation_angle() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.rotation.x = p3d::convert_rotation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 30, anglex; :  Set Scene X Rotation Angle
+void set_scene_x_rotation_angle() {
+    auto value = m_proc->readWord_t();
+    m_scene.rotation.x = p3d::convert_rotation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: X rotation angle %f\n", m_scene.rotation.x);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 31, angley; :  Set Scene Y Rotation Angle
-// void set_scene_y_rotation_angle() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.rotation.y = p3d::convert_rotation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 31, angley; :  Set Scene Y Rotation Angle
+void set_scene_y_rotation_angle() {
+    auto value = m_proc->readWord_t();
+    m_scene.rotation.y = p3d::convert_rotation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: Y rotation angle %f\n", m_scene.rotation.y);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 32, anglez; :  Set Scene Z Rotation Angle
-// void set_scene_z_rotation_angle() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.rotation.z = p3d::convert_rotation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 32, anglez; :  Set Scene Z Rotation Angle
+void set_scene_z_rotation_angle() {
+    auto value = m_proc->readWord_t();
+    m_scene.rotation.z = p3d::convert_rotation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: Z rotation angle %f\n", m_scene.rotation.z);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 33, anglex; angley; anglez; :  Set Scene XYZ Rotation Angles
-// void set_scene_xyz_rotation_angles() {
-//     auto valuex = m_proc->readWord_t();
-//     auto valuey = m_proc->readWord_t();
-//     auto valuez = m_proc->readWord_t();
-//     m_scene.rotation.x = p3d::convert_rotation_value(valuex);
-//     m_scene.rotation.y = p3d::convert_rotation_value(valuey);
-//     m_scene.rotation.z = p3d::convert_rotation_value(valuez);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 33, anglex; angley; anglez; :  Set Scene XYZ Rotation Angles
+void set_scene_xyz_rotation_angles() {
+    auto valuex = m_proc->readWord_t();
+    auto valuey = m_proc->readWord_t();
+    auto valuez = m_proc->readWord_t();
+    m_scene.rotation.x = p3d::convert_rotation_value(valuex);
+    m_scene.rotation.y = p3d::convert_rotation_value(valuey);
+    m_scene.rotation.z = p3d::convert_rotation_value(valuez);
+    m_scene.modified = true;
+    // printf("Scene: XYZ rotation angles %f %f %f\n", m_scene.rotation.x, m_scene.rotation.y, m_scene.rotation.z);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 34, distx; :  Set Scene X Translation Distance
-// void set_scene_x_translation_distance() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.translation.x = p3d::convert_translation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 34, distx; :  Set Scene X Translation Distance
+void set_scene_x_translation_distance() {
+    auto value = m_proc->readWord_t();
+    m_scene.translation.x = p3d::convert_translation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: X translation distance %f\n", m_scene.translation.x);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 35, disty; :  Set Scene Y Translation Distance
-// void set_scene_y_translation_distance() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.translation.y = p3d::convert_translation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 35, disty; :  Set Scene Y Translation Distance
+void set_scene_y_translation_distance() {
+    auto value = m_proc->readWord_t();
+    m_scene.translation.y = p3d::convert_translation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: Y translation distance %f\n", m_scene.translation.y);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 36, distz; :  Set Scene Z Translation Distance
-// void set_scene_z_translation_distance() {
-//     auto value = m_proc->readWord_t();
-//     m_scene.translation.z = p3d::convert_translation_value(value);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 36, distz; :  Set Scene Z Translation Distance
+void set_scene_z_translation_distance() {
+    auto value = m_proc->readWord_t();
+    m_scene.translation.z = p3d::convert_translation_value(value);
+    m_scene.modified = true;
+    // printf("Scene: Z translation distance %f\n", m_scene.translation.z);
+}
 
-// // VDU 23, 0, &A0, sid; &49, 37, distx; disty; distz :  Set Scene XYZ Translation Distances
-// void set_scene_xyz_translation_distances() {
-//     auto valuex = m_proc->readWord_t();
-//     auto valuey = m_proc->readWord_t();
-//     auto valuez = m_proc->readWord_t();
-//     m_scene.translation.x = p3d::convert_translation_value(valuex);
-//     m_scene.translation.y = p3d::convert_translation_value(valuey);
-//     m_scene.translation.z = p3d::convert_translation_value(valuez);
-//     m_scene.modified = true;
-// }
+// VDU 23, 0, &A0, sid; &49, 37, distx; disty; distz :  Set Scene XYZ Translation Distances
+void set_scene_xyz_translation_distances() {
+    auto valuex = m_proc->readWord_t();
+    auto valuey = m_proc->readWord_t();
+    auto valuez = m_proc->readWord_t();
+    m_scene.translation.x = p3d::convert_translation_value(valuex);
+    m_scene.translation.y = p3d::convert_translation_value(valuey);
+    m_scene.translation.z = p3d::convert_translation_value(valuez);
+    m_scene.modified = true;
+    // printf("Scene: XYZ translation distances %f %f %f\n", m_scene.translation.x, m_scene.translation.y, m_scene.translation.z);
+}
 
 // VDU 23, 0, &A0, sid; &49, 41, type : Set Rendering Dither Type
 void set_rendering_dither_type() {
@@ -737,6 +824,7 @@ void set_rendering_dither_type() {
             debug_log("Invalid dithering type %u\n", m_dither_type);
             break;
     }
+    // printf("Dithering type %u\n", m_dither_type);
 }
 
 // VDU 23, 0, &A0, sid; &49, 38, bmid; :  Render To Bitmap
@@ -744,12 +832,14 @@ void render_to_bitmap() {
     auto start = millis();
 
     auto bmid = m_proc->readWord_t();
+    printf("Rendering to Bitmap %u\n", bmid);
     if (bmid < 0) {
         return;
     }
 
     if (!m_renderer.frameBuffer) {
         m_renderer.frameBuffer = getBitmap(bmid).get();
+        printf("Frame buffer set to Bitmap %u\n", bmid);
     }
 
     if (m_camera.modified) {
@@ -758,18 +848,18 @@ void render_to_bitmap() {
     if (m_camera.modified_loc) {
         p3d::compute_transformation_matrix_local(m_camera);
     }
-    //debug_log("Camera:\n");
-    // m_camera.dump();
+    // printf("Camera:\n");
+    // p3d::dump(m_camera);
 
     for (auto object = m_objects->begin(); object != m_objects->end(); object++) {
         p3d::TexObject& texObj = object->second;  // Reference to the TexObject for clarity
         if (texObj.modified) {
             p3d::compute_transformation_matrix(texObj);
-            // texObj.dump();
+            // p3d::dump(texObj);
         }
         if (texObj.modified_loc) {
             p3d::compute_transformation_matrix_local(texObj);
-            // texObj.dump();
+            // p3d::dump(texObj);
         }
         p3d::sceneAddRenderable(&m_scene, texObj.texObject_as_renderable());
     }
@@ -781,6 +871,12 @@ void render_to_bitmap() {
         p3d::compute_transformation_matrix_local(m_scene);
     }
 
+    // Check if the z_buffer exists; if not, create a new one
+    if (m_renderer.z_buffer == nullptr) {
+        std::printf("render_to_bitmap: z_buffer is null, creating a new z_buffer.\n");
+        m_renderer.z_buffer = p3d::depth_buffer_create(m_width * m_height);
+        std::printf("render_to_bitmap: New z_buffer created. Pointer = %p\n", static_cast<void*>(m_renderer.z_buffer));
+    }
     p3d::rendererRender(&m_renderer);
 
     //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
