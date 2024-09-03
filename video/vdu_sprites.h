@@ -56,6 +56,19 @@ void VDUStreamProcessor::vdu_sys_sprites() {
 			createEmptyBitmap(context->getCurrentBitmapId(), rw, rh, color);
 		}	break;
 
+		case 0x22: {	// Define bitmap in single color
+			auto rw = readWord_t(); if (rw == -1) return;
+			auto rh = readWord_t(); if (rh == -1) return;
+			uint8_t color;
+			auto remaining = readIntoBuffer((uint8_t *)&color, sizeof(uint8_t));
+			if (remaining > 0) {
+				debug_log("vdu_sys_sprites: failed to receive color data\n\r");
+				return;
+			}
+
+			createEmptyBitmap2222(context->getCurrentBitmapId(), rw, rh, color);
+		}	break;
+
 		case 3: {	// Draw bitmap to screen (x,y)
 			auto rx = readWord_t(); if (rx == -1) return;
 			auto ry = readWord_t(); if (ry == -1) return;
@@ -254,6 +267,22 @@ void VDUStreamProcessor::createEmptyBitmap(uint16_t bufferId, uint16_t width, ui
 	for (auto n = 0; n < size; n++) dataptr[n] = color;
 	// create RGBA8888 bitmap from buffer
 	createBitmapFromBuffer(bufferId, 0, width, height);
+}
+
+void VDUStreamProcessor::createEmptyBitmap2222(uint16_t bufferId, uint16_t width, uint16_t height, uint8_t color) {
+	bufferClear(bufferId);
+
+	// create a new buffer of appropriate size
+	uint32_t size = width * height;
+	auto buffer = bufferCreate(bufferId, sizeof(uint8_t) * size);
+	if (!buffer) {
+		debug_log("vdu_sys_sprites: failed to create buffer\n\r");
+		return;
+	}
+	auto dataptr = (uint8_t *)buffer->getBuffer();
+	for (auto n = 0; n < size; n++) dataptr[n] = color;
+	// create RGBA2222 bitmap from buffer
+	createBitmapFromBuffer(bufferId, 1, width, height);
 }
 
 void VDUStreamProcessor::createBitmapFromBuffer(uint16_t bufferId, uint8_t format, uint16_t width, uint16_t height) {
