@@ -3,10 +3,19 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-//What format to use [ UINT8 | RGB565 | RGBA8888 | BGRA8888 | RGB888 ]
-#define BGRA8888
+//What format to use [ UINT8 | RGB565 | RGBA8888 | BGRA8888 | RGB888 | RGBA2222]
+// #define BGRA8888
+#define RGBA2222P
 
 //Formats definitions:
+#ifdef RGBA2222P
+typedef struct tag_Pixel {
+    uint8_t c;
+}Pixel;
+#define PIXELBLACK (Pixel){192}
+#define PIXELWHITE (Pixel){255}
+#endif
+
 #ifdef UINT8
 typedef struct tag_Pixel {
     uint8_t g;

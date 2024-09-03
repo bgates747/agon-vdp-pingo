@@ -359,23 +359,3 @@ void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspec
     *far = b / (a + 1.0);
     *near = b / (a - 1.0);
 }
-
-// Decode the rgba2222 pixel format
-Pixel rgba2222_to_pixel(uint8_t data) {
-    uint8_t a = (data >> 6) & 0b11;
-    uint8_t b = (data >> 4) & 0b11;
-    uint8_t g = (data >> 2) & 0b11;
-    uint8_t r = data & 0b11;
-
-    // Map the 2-bit values to 8-bit color values
-    static const uint8_t mapping[4] = {0, 85, 170, 255};
-
-    Pixel pixel;
-    pixel.r = mapping[r];
-    pixel.g = mapping[g];
-    pixel.b = mapping[b];
-    pixel.a = mapping[a];
-
-    return pixel;
-}
-

@@ -550,7 +550,7 @@ typedef struct tag_Pingo3dControl {
                     object->bind();
                     texture_init(&object->m_texture, size, pix);
                     object->m_object.mesh = mesh;
-                    debug_log("Texture data:  %02hX %02hX %02hX %02hX\n", pix->r, pix->g, pix->b, pix->a);
+                    // debug_log("Texture data:  %02hX %02hX %02hX %02hX\n", pix->r, pix->g, pix->b, pix->a);
                 }
             }
         }
