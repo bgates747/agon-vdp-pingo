@@ -273,13 +273,10 @@ typedef struct tag_Pingo3dControl {
 
         auto frame_size = (uint32_t) width * (uint32_t) height;
 
-        auto size = sizeof(p3d::Pixel) * frame_size;
-        m_frame = (p3d::Pixel*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-        if (!m_frame) {
-            debug_log("initialize: failed to allocate %u bytes for frame\n", size);
-            show_free_ram();
-        }
+        auto tgtbmp = getBitmap(257).get();
+        m_frame = (p3d::Pixel*) tgtbmp->data;
 
+        auto size = sizeof(p3d::Pixel) * frame_size;
         size = sizeof(p3d::PingoDepth) * frame_size;
         m_zeta = (p3d::PingoDepth*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
         if (!m_zeta) {
@@ -1018,20 +1015,6 @@ typedef struct tag_Pingo3dControl {
             return;
         }
 
-        p3d::Pixel* dst_pix = NULL;
-        auto old_bitmap = getBitmap(bmid);
-        if (old_bitmap) {
-            auto bitmap = old_bitmap.get();
-            if (bitmap && bitmap->width == m_width && bitmap->height == m_height) {
-                dst_pix = (p3d::Pixel*) bitmap->data;
-            }
-        }
-
-        if (!dst_pix) {
-            debug_log("render_to_bitmap: output bitmap %u not found or invalid\n", bmid);
-            return;
-        }
-
         auto start = millis();
         auto size = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
         p3d::Renderer renderer;
@@ -1100,8 +1083,6 @@ typedef struct tag_Pingo3dControl {
                 debug_log("Invalid dithering type %u\n", m_dither_type);
                 break;
         }
-
-        memcpy(dst_pix, m_frame, sizeof(p3d::Pixel) * m_width * m_height);
 
         auto stop = millis();
         auto diff = stop - start;
