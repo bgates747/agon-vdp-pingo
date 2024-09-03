@@ -4,9 +4,9 @@
 #define		VERSION_MAJOR		2
 #define		VERSION_MINOR		10
 #define		VERSION_PATCH	    0   
-#define		VERSION_CANDIDATE	6			// Optional
+#define		VERSION_CANDIDATE	7			// Optional
 #define		VERSION_TYPE		"Alpha "	// RC, Alpha, Beta, etc.
 
-#define		VERSION_VARIANT		"ScratchPingo "
+#define		VERSION_VARIANT		"ScratchPingo 2222"
 
 #endif // VERSION_H
