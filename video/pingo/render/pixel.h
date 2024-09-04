@@ -12,8 +12,8 @@
 typedef struct tag_Pixel {
     uint8_t c;
 }Pixel;
-#define PIXELBLACK (Pixel){192}
-#define PIXELWHITE (Pixel){255}
+static const Pixel PIXELBLACK = {192};
+static const Pixel PIXELWHITE = {255};
 #endif
 
 #ifdef UINT8

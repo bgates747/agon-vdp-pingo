@@ -239,6 +239,8 @@ extern "C" {
 
     p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd);
 
+    p3d::Pixel* static_get_background(p3d::Renderer* ren, p3d::BackEnd* backEnd);
+
 } // extern "C"
 
 typedef struct tag_Pingo3dControl {
@@ -248,6 +250,9 @@ typedef struct tag_Pingo3dControl {
     p3d::BackEnd        m_backend;          // Used by the renderer
     p3d::Pixel*         m_frame;            // Frame buffer for rendered pixels
     p3d::PingoDepth*    m_zeta;             // Zeta buffer for depth information
+    p3d::Pixel*         m_background;       // Background bitmap for clearing the frame buffer
+    p3d::Pixel          m_clearColor;        // Color to clear the frame buffer
+    int                 m_clear;            // Clear type for the frame buffer
     uint16_t            m_width;            // Width of final render in pixels
     uint16_t            m_height;           // Height of final render in pixels
     Transformable       m_camera;           // Camera transformation settings
@@ -276,6 +281,15 @@ typedef struct tag_Pingo3dControl {
         auto tgtbmp = getBitmap(257).get();
         m_frame = (p3d::Pixel*) tgtbmp->data;
 
+        // m_clear = p3d::REND_CLEAR;
+        // m_clearColor = p3d::PIXELBLACK;
+        // m_clearColor = 0;
+        // auto bkgbmp = getBitmap(258).get();
+        // if (bkgbmp) {
+        //     m_background = (p3d::Pixel*) bkgbmp->data;
+        //     m_clear = p3d::REND_BACKGROUND;
+        // }
+
         auto size = sizeof(p3d::Pixel) * frame_size;
         size = sizeof(p3d::PingoDepth) * frame_size;
         m_zeta = (p3d::PingoDepth*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
@@ -289,6 +303,7 @@ typedef struct tag_Pingo3dControl {
         m_backend.afterRender = &static_after_render;
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.getZetaBuffer = &static_get_zeta_buffer;
+        m_backend.getBackground = &static_get_background;
         m_backend.drawPixel = NULL;
         m_backend.clientCustomData = (void*) this;
 
@@ -1018,6 +1033,15 @@ typedef struct tag_Pingo3dControl {
         auto start = millis();
         auto size = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
         p3d::Renderer renderer;
+
+        renderer.clear = p3d::REND_CLEAR;
+        renderer.clearColor = p3d::PIXELBLACK;
+        auto bkgbmp = getBitmap(258).get();
+        if (bkgbmp) {
+            renderer.background.frameBuffer = (p3d::Pixel*) bkgbmp->data;
+            renderer.clear = p3d::REND_BACKGROUND;
+        }
+
         rendererInit(&renderer, size, &m_backend );
         rendererSetCamera(&renderer,(p3d::Vec4i){0,0,size.x,size.y});
 
@@ -1063,8 +1087,6 @@ typedef struct tag_Pingo3dControl {
 
         //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
         //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
-
-        renderer.clear = 1; // 0 = don't clear, non-0 = clear before rendering
 
         rendererRender(&renderer);
 
@@ -1195,6 +1217,11 @@ extern "C" {
     p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
         auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
         return p_this->m_zeta;
+    }
+
+    p3d::Pixel* static_get_background(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
+        auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
+        return p_this->m_background;
     }
 
 #if DEBUG

@@ -248,8 +248,6 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
 
     r->scene = 0;
-    r->clear = 1;
-    r->clearColor = PIXELBLACK;
     r->backEnd = backEnd;
 
     r->backEnd->init(r, r->backEnd, (Vec4i) { 0, 0, 0, 0 });
@@ -258,22 +256,36 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     e = texture_init( & (r->frameBuffer), size, backEnd->getFrameBuffer(r, backEnd));
     if (e) return e;
 
+    // if (r->clear == REND_BACKGROUND) {
+    //     e = texture_init( & (r->background), size, backEnd->getBackground(r, backEnd));
+    //     if (e) return e;
+    // }
+
     return 0;
 }
 
 int rendererRender(Renderer * r) {
 
+    // reset the z buffer
     int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
     memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
     r->backEnd->beforeRender(r, r->backEnd);
 
-    //get current framebuffe from backend
+    //get current framebuffer from backend
     r->frameBuffer.frameBuffer = r->backEnd->getFrameBuffer(r, r->backEnd);
 
     //Clear draw buffer before rendering
-    if (r->clear) {
-        memset(r->backEnd->getFrameBuffer(r,r->backEnd), 0, pixels * sizeof (Pixel));
+    if (r->clear == REND_CLEAR) {
+        memset(r->backEnd->getFrameBuffer(r,r->backEnd), r->clearColor.c, pixels * sizeof (Pixel));
+    }
+    else if (r->clear == REND_BACKGROUND) {
+        // Directly access the background frameBuffer and copy it to the renderer's frameBuffer
+        Pixel* frameBuffer = r->frameBuffer.frameBuffer;       // Renderer’s frameBuffer pointer
+        Pixel* backgroundBuffer = r->background.frameBuffer;   // Background frameBuffer pointer
+
+        // Copy background to framebuffer
+        memcpy(frameBuffer, backgroundBuffer, pixels * sizeof(Pixel));
     }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));

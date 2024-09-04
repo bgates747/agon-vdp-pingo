@@ -8,13 +8,21 @@
 typedef struct tag_Scene Scene;
 typedef struct tag_BackEnd BackEnd;
 
+typedef enum {
+    REND_NO_CLEAR = 0,  // 0: No clearing
+    REND_CLEAR = 1,     // 1: Clear the frameBuffer
+    REND_BACKGROUND = 2 // 2: Clear with a background texture
+} RenderClearType;
+
 typedef struct tag_Renderer{
     Vec4i camera;
     Scene * scene;
 
     Texture frameBuffer;
-    Pixel clearColor;
+    
     int clear;
+    Pixel clearColor;
+    Texture background;
 
     Mat4 camera_projection;
     Mat4 camera_view;
