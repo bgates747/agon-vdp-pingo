@@ -13,9 +13,6 @@ typedef struct tag_PingoDepth PingoDepth;
 
 typedef struct tag_BackEnd {
 
-    //Called after having finished a render
-    void (*afterRender)(Renderer *, struct tag_BackEnd * );
-
     //Should return the address of the buffer (height*width*sizeof(Pixel))
     Pixel * (*getFrameBuffer)(Renderer *, struct tag_BackEnd * );
 

@@ -277,8 +277,6 @@ int rendererRender(Renderer * r) {
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
 
-    r->backEnd->afterRender(r, r->backEnd);
-
     return 0;
 }
 

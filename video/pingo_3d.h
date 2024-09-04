@@ -296,7 +296,6 @@ typedef struct tag_Pingo3dControl {
             show_free_ram();
         }
 
-        m_backend.afterRender = &static_after_render;
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.getZetaBuffer = &static_get_zeta_buffer;
         m_backend.getBackground = &static_get_background;
