@@ -265,26 +265,17 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
 }
 
 int rendererRender(Renderer * r) {
-
-    // reset the z buffer
     int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
+    
     memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
     r->backEnd->beforeRender(r, r->backEnd);
 
-    //get current framebuffer from backend
-    r->frameBuffer.frameBuffer = r->backEnd->getFrameBuffer(r, r->backEnd);
-
-    //Clear draw buffer before rendering
+    Pixel* frameBuffer = r->frameBuffer.frameBuffer;
     if (r->clear == REND_CLEAR) {
-        memset(r->backEnd->getFrameBuffer(r,r->backEnd), r->clearColor.c, pixels * sizeof (Pixel));
-    }
-    else if (r->clear == REND_BACKGROUND) {
-        // Directly access the background frameBuffer and copy it to the renderer's frameBuffer
-        Pixel* frameBuffer = r->frameBuffer.frameBuffer;       // Renderer’s frameBuffer pointer
-        Pixel* backgroundBuffer = r->background.frameBuffer;   // Background frameBuffer pointer
-
-        // Copy background to framebuffer
+        memset(frameBuffer, r->clearColor.c, pixels * sizeof(Pixel));
+    } else if (r->clear == REND_BACKGROUND) {
+        Pixel* backgroundBuffer = r->background.frameBuffer;
         memcpy(frameBuffer, backgroundBuffer, pixels * sizeof(Pixel));
     }
 
@@ -294,6 +285,7 @@ int rendererRender(Renderer * r) {
 
     return 0;
 }
+
 
 int rendererSetScene(Renderer * r, Scene * s) {
     if (s == 0)
