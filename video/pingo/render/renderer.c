@@ -74,7 +74,8 @@ void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float 
     }
     else {
         // By default call this
-        texture_draw(f, pos, pixelMul(color,illumination));
+        // texture_draw(f, pos, pixelMul(color,illumination));
+        texture_draw(f, pos, color);
     }
 }
 
@@ -117,23 +118,23 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         b = mat4MultiplyVec4( &b, &m);
         c = mat4MultiplyVec4( &c, &m);
 
-        // TODO: convert this to look up normals from the mesh
-        // FACE NORMAL
-        Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        Vec3f faceNormal = vec3Normalize(vec3Cross(na, nb));
+        // // TODO: convert this to look up normals from the mesh
+        // // FACE NORMAL
+        // Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
+        // Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
+        // Vec3f faceNormal = vec3Normalize(vec3Cross(na, nb));
 
-        // Cull triangles facing away from camera
-        float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
-        if (faceCamDot < 0)
-            continue;
+        // // Cull triangles facing away from camera
+        // float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
+        // if (faceCamDot < 0)
+        //     continue;
 
         float diffuseLight = 1.0; // default to full illumination from all directions
-        if (true) { // set to true for lighting effects at the expense of performance
-            Vec3f light = vec3Normalize((Vec3f){-3,8,5});
-            diffuseLight = (1.0 + vec3Dot(faceNormal, light)) *0.5;
-            diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
-        }
+        // if (true) { // set to true for lighting effects at the expense of performance
+        //     Vec3f light = vec3Normalize((Vec3f){-3,8,5});
+        //     diffuseLight = (1.0 + vec3Dot(faceNormal, light)) *0.5;
+        //     diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
+        // }
 
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
