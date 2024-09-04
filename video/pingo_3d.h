@@ -229,8 +229,6 @@ struct tag_Pingo3dControl;
 
 extern "C" {
 
-    void static_init(p3d::Renderer* ren, p3d::BackEnd* backEnd, p3d::Vec4i _rect);
-
     void static_before_render(p3d::Renderer* ren, p3d::BackEnd* backEnd);
 
     void static_after_render(p3d::Renderer* ren, p3d::BackEnd* backEnd);
@@ -298,7 +296,6 @@ typedef struct tag_Pingo3dControl {
             show_free_ram();
         }
 
-        m_backend.init = &static_init;
         m_backend.beforeRender = &static_before_render;
         m_backend.afterRender = &static_after_render;
         m_backend.getFrameBuffer = &static_get_frame_buffer;
@@ -1198,10 +1195,6 @@ typedef struct tag_Pingo3dControl {
 } Pingo3dControl;
 
 extern "C" {
-
-    void static_init(p3d::Renderer* ren, p3d::BackEnd* backEnd, p3d::Vec4i _rect) {
-        //rect = _rect;
-    }
 
     void static_before_render(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
     }

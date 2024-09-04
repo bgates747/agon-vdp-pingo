@@ -12,8 +12,6 @@ typedef struct tag_Pixel Pixel;
 typedef struct tag_PingoDepth PingoDepth;
 
 typedef struct tag_BackEnd {
-    //Called on initialization and re-initialization
-    void (*init)(Renderer *, struct tag_BackEnd *, Vec4i rect);
 
     //Called before starting rendering
     void (*beforeRender)(Renderer *, struct tag_BackEnd * );

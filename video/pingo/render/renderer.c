@@ -250,8 +250,6 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     r->scene = 0;
     r->backEnd = backEnd;
 
-    r->backEnd->init(r, r->backEnd, (Vec4i) { 0, 0, 0, 0 });
-
     int e = 0;
     e = texture_init( & (r->frameBuffer), size, backEnd->getFrameBuffer(r, backEnd));
     if (e) return e;
@@ -266,7 +264,7 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
 
 int rendererRender(Renderer * r) {
     int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
-    
+
     memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
     r->backEnd->beforeRender(r, r->backEnd);
@@ -297,7 +295,6 @@ int rendererSetScene(Renderer * r, Scene * s) {
 
 int rendererSetCamera(Renderer * r, Vec4i rect) {
     r->camera = rect;
-    r->backEnd->init(r, r->backEnd, rect);
     r->frameBuffer.size = (Vec2i) {
             rect.z, rect.w
 };
