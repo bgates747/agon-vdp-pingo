@@ -228,16 +228,9 @@ typedef struct tag_TexObject : public Transformable {
 struct tag_Pingo3dControl;
 
 extern "C" {
-
-    void static_before_render(p3d::Renderer* ren, p3d::BackEnd* backEnd);
-
-    void static_after_render(p3d::Renderer* ren, p3d::BackEnd* backEnd);
-
     p3d::Pixel* static_get_frame_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd);
 
     p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd);
-
-    p3d::Pixel* static_get_background(p3d::Renderer* ren, p3d::BackEnd* backEnd);
 
 } // extern "C"
 
@@ -1193,9 +1186,6 @@ typedef struct tag_Pingo3dControl {
 
 extern "C" {
 
-    void static_after_render(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
-    }
-
     p3d::Pixel* static_get_frame_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
         auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
         return p_this->m_frame;
@@ -1204,11 +1194,6 @@ extern "C" {
     p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
         auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
         return p_this->m_zeta;
-    }
-
-    p3d::Pixel* static_get_background(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
-        auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
-        return p_this->m_background;
     }
 
 #if DEBUG
