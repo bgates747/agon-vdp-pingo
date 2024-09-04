@@ -6,7 +6,7 @@
 
 typedef struct  Texture {
    Vec2i size;
-   Pixel * frameBuffer;
+   Pixel * pixels;
 } Texture;
 
 extern int texture_init( Texture * f, Vec2i size, Pixel *);

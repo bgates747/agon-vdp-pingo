@@ -262,11 +262,11 @@ int rendererRender(Renderer * r) {
 
     memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
-    Pixel* frameBuffer = r->frameBuffer.frameBuffer;
+    Pixel* frameBuffer = r->frameBuffer.pixels;
     if (r->clear == REND_CLEAR) {
         memset(frameBuffer, r->clearColor.c, pixels * sizeof(Pixel));
     } else if (r->clear == REND_BACKGROUND) {
-        Pixel* backgroundBuffer = r->background.frameBuffer;
+        Pixel* backgroundBuffer = r->background.pixels;
         memcpy(frameBuffer, backgroundBuffer, pixels * sizeof(Pixel));
     }
 
@@ -320,7 +320,7 @@ static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f
 }
 
 static Pixel shade(const Texture* texture, Vec2f uv) {
-    if (texture->frameBuffer != NULL) {
+    if (texture->pixels != NULL) {
         float u = uv.x;
         float v = uv.y;
 

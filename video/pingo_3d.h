@@ -219,9 +219,9 @@ typedef struct tag_TexObject : public Transformable {
         debug_log("TObject: %p %u\n", this, m_oid);
         debug_log("Object: %p %p %p %p\n", &m_object, m_object.material, m_object.mesh,
                     m_object.transform.elements);
-        debug_log("Texture: %p %u %u %p\n", &m_texture, m_texture.size.x, m_texture.size.y, m_texture.frameBuffer);
+        debug_log("Texture: %p %u %u %p\n", &m_texture, m_texture.size.x, m_texture.size.y, m_texture.pixels);
         debug_log("Material: %p %p %u %u %p\n", &m_material, m_material.texture, m_material.texture->size.x,
-                    m_material.texture->size.y, m_material.texture->frameBuffer);
+                    m_material.texture->size.y, m_material.texture->pixels);
     }
 } TexObject;
 
@@ -1025,7 +1025,7 @@ typedef struct tag_Pingo3dControl {
         renderer.clearColor = p3d::PIXELBLACK;
         auto bkgbmp = getBitmap(258).get();
         if (bkgbmp) {
-            renderer.background.frameBuffer = (p3d::Pixel*) bkgbmp->data;
+            renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
             renderer.clear = p3d::REND_BACKGROUND;
         }
 
