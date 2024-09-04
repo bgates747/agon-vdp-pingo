@@ -22,9 +22,6 @@ typedef struct tag_BackEnd {
     //Should return the address of the buffer (height*width*sizeof(Pixel))
     PingoDepth * (*getZetaBuffer)(Renderer *, struct tag_BackEnd * );
 
-    //Should return the address of the buffer (height*width*sizeof(Pixel))
-    Pixel * (*getBackground)(Renderer *, struct tag_BackEnd * );
-
     //Allows for referencing client-custom data structure
     void* clientCustomData;
 } BackEnd;

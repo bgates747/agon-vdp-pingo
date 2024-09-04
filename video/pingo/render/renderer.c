@@ -254,11 +254,6 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     e = texture_init( & (r->frameBuffer), size, backEnd->getFrameBuffer(r, backEnd));
     if (e) return e;
 
-    // if (r->clear == REND_BACKGROUND) {
-    //     e = texture_init( & (r->background), size, backEnd->getBackground(r, backEnd));
-    //     if (e) return e;
-    // }
-
     return 0;
 }
 

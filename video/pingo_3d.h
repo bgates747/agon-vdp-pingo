@@ -298,7 +298,6 @@ typedef struct tag_Pingo3dControl {
 
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.getZetaBuffer = &static_get_zeta_buffer;
-        m_backend.getBackground = &static_get_background;
         m_backend.drawPixel = NULL;
         m_backend.clientCustomData = (void*) this;
 
