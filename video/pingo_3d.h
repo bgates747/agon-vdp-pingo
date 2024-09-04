@@ -296,7 +296,6 @@ typedef struct tag_Pingo3dControl {
             show_free_ram();
         }
 
-        m_backend.beforeRender = &static_before_render;
         m_backend.afterRender = &static_after_render;
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.getZetaBuffer = &static_get_zeta_buffer;
@@ -1195,9 +1194,6 @@ typedef struct tag_Pingo3dControl {
 } Pingo3dControl;
 
 extern "C" {
-
-    void static_before_render(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
-    }
 
     void static_after_render(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
     }

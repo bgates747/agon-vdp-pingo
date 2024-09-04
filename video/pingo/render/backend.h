@@ -13,9 +13,6 @@ typedef struct tag_PingoDepth PingoDepth;
 
 typedef struct tag_BackEnd {
 
-    //Called before starting rendering
-    void (*beforeRender)(Renderer *, struct tag_BackEnd * );
-
     //Called after having finished a render
     void (*afterRender)(Renderer *, struct tag_BackEnd * );
 

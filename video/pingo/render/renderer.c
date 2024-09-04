@@ -267,8 +267,6 @@ int rendererRender(Renderer * r) {
 
     memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
 
-    r->backEnd->beforeRender(r, r->backEnd);
-
     Pixel* frameBuffer = r->frameBuffer.frameBuffer;
     if (r->clear == REND_CLEAR) {
         memset(frameBuffer, r->clearColor.c, pixels * sizeof(Pixel));
