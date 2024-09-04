@@ -7,8 +7,7 @@
 
 #ifdef ZBUFFER32
 typedef struct tag_PingoDepth {
-    // uint32_t d;
-    float d;
+    uint32_t d;
 } PingoDepth;
 #endif
 

@@ -229,9 +229,6 @@ struct tag_Pingo3dControl;
 
 extern "C" {
     p3d::Pixel* static_get_frame_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd);
-
-    p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd);
-
 } // extern "C"
 
 typedef struct tag_Pingo3dControl {
@@ -290,7 +287,6 @@ typedef struct tag_Pingo3dControl {
         }
 
         m_backend.getFrameBuffer = &static_get_frame_buffer;
-        m_backend.getZetaBuffer = &static_get_zeta_buffer;
         m_backend.drawPixel = NULL;
         m_backend.clientCustomData = (void*) this;
 
@@ -1029,6 +1025,7 @@ typedef struct tag_Pingo3dControl {
             renderer.clear = p3d::REND_BACKGROUND;
         }
 
+        renderer.z_buffer = m_zeta;
         rendererInit(&renderer, size, &m_backend );
         rendererSetCamera(&renderer,(p3d::Vec4i){0,0,size.x,size.y});
 
@@ -1189,11 +1186,6 @@ extern "C" {
     p3d::Pixel* static_get_frame_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
         auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
         return p_this->m_frame;
-    }
-
-    p3d::PingoDepth* static_get_zeta_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
-        auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
-        return p_this->m_zeta;
     }
 
 #if DEBUG

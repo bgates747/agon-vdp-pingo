@@ -221,11 +221,11 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
                 }
                 float z = 1.0f / inv_z;
 
-                if (depth_check(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, -inv_z)) {
+                if (depth_check(r->z_buffer, scrX + scrY * scrSize.x, -inv_z)) {
                     continue;
                 }
 
-                depth_write(r->backEnd->getZetaBuffer(r, r->backEnd), scrX + scrY * scrSize.x, -inv_z);
+                depth_write(r->z_buffer, scrX + scrY * scrSize.x, -inv_z);
 
                 // Interpolate the texture coordinates
                 Vec2f uv;
@@ -260,7 +260,7 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
 int rendererRender(Renderer * r) {
     int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
 
-    memset(r->backEnd->getZetaBuffer(r,r->backEnd), 0, pixels * sizeof (PingoDepth));
+    memset(r->z_buffer, 0, pixels * sizeof (PingoDepth));
 
     Pixel* frameBuffer = r->frameBuffer.pixels;
     if (r->clear == REND_CLEAR) {

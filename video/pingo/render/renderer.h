@@ -1,5 +1,6 @@
 #pragma once
 
+#include "depth.h"
 #include "texture.h"
 #include "renderable.h"
 #include "pixel.h"
@@ -17,6 +18,8 @@ typedef enum {
 typedef struct tag_Renderer{
     Vec4i camera;
     Scene * scene;
+
+    PingoDepth * z_buffer;
 
     Texture frameBuffer;
     
