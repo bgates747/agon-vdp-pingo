@@ -269,15 +269,6 @@ typedef struct tag_Pingo3dControl {
         auto tgtbmp = getBitmap(257).get();
         m_frame = (p3d::Pixel*) tgtbmp->data;
 
-        // m_clear = p3d::REND_CLEAR;
-        // m_clearColor = p3d::PIXELBLACK;
-        // m_clearColor = 0;
-        // auto bkgbmp = getBitmap(258).get();
-        // if (bkgbmp) {
-        //     m_background = (p3d::Pixel*) bkgbmp->data;
-        //     m_clear = p3d::REND_BACKGROUND;
-        // }
-
         auto size = sizeof(p3d::Pixel) * frame_size;
         size = sizeof(p3d::PingoDepth) * frame_size;
         m_zeta = (p3d::PingoDepth*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
@@ -292,6 +283,98 @@ typedef struct tag_Pingo3dControl {
 
         m_meshes = new std::map<uint16_t, p3d::Mesh>;
         m_objects = new std::map<uint16_t, TexObject>;
+    }
+
+    // VDU 23, 0, &A0, sid; &49, 38, bmid; :  Render To Bitmap
+    void render_to_bitmap() {
+        auto bmid = m_proc->readWord_t();
+        if (bmid < 0) {
+            return;
+        }
+
+        auto start = millis();
+        auto size = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
+        p3d::Renderer renderer;
+
+        renderer.clear = p3d::REND_CLEAR;
+        renderer.clearColor = p3d::PIXELBLACK;
+        auto bkgbmp = getBitmap(258).get();
+        if (bkgbmp) {
+            renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
+            renderer.clear = p3d::REND_BACKGROUND;
+        }
+
+        renderer.z_buffer = m_zeta;
+        rendererInit(&renderer, size, &m_backend );
+        rendererSetCamera(&renderer,(p3d::Vec4i){0,0,size.x,size.y});
+
+        p3d::Scene scene;
+        sceneInit(&scene);
+        p3d::rendererSetScene(&renderer, &scene);
+
+        for (auto object = m_objects->begin(); object != m_objects->end(); object++) {
+            object->second.bind();
+            if (object->second.m_modified) {
+                object->second.m_is_camera = false;
+                object->second.update_transformation_matrix();
+                //object->second.dump();
+            }
+            if (object->second.m_modified_loc) {
+                object->second.m_is_camera = false;
+                object->second.update_transformation_matrix_loc();
+                //object->second.dump();
+            }
+            sceneAddRenderable(&scene, p3d::object_as_renderable(&object->second.m_object));
+        }
+
+        // Set the projection matrix
+        renderer.camera_projection =
+            p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)size.x / (p3d::F_TYPE)size.y, 0.5);
+
+        if (m_camera.m_modified) {
+            m_camera.m_is_camera = true;
+            m_camera.compute_transformation_matrix();
+        }
+        if (m_camera.m_modified_loc) {
+            m_camera.m_is_camera = true;
+            m_camera.compute_transformation_matrix_local();
+        }
+        //debug_log("Camera:\n");
+        // m_camera.dump();
+        renderer.camera_view = m_camera.m_transform;
+
+        if (m_scene.m_modified) {
+            m_scene.compute_transformation_matrix();
+        }
+        scene.transform = m_scene.m_transform;
+
+        //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
+        //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
+
+        rendererRender(&renderer);
+
+        // Apply dithering to the rendered image before copying to the destination bitmap
+        switch (m_dither_type) {
+            case 0:
+                break; // no dithering applied
+            case 1:
+                dither_bayer((uint8_t*)m_frame, m_width, m_height);
+                break;
+            case 2:
+                dither_floyd_steinberg((uint8_t*)m_frame, m_width, m_height);
+                break;
+            default:
+                m_dither_type = 0; // no dithering applied
+                debug_log("Invalid dithering type %u\n", m_dither_type);
+                break;
+        }
+
+        auto stop = millis();
+        auto diff = stop - start;
+        float fps = 1000.0 / diff;
+        printf("Render to %ux%u took %u ms (%.2f FPS)\n", m_width, m_height, diff, fps);
+        //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
+        //debug_log("Final data:  %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
     }
 
     // VDU 23, 0, &A0, sid; &49, 0, 0 :  Deinitialize Control Structure
@@ -1005,99 +1088,6 @@ typedef struct tag_Pingo3dControl {
                 break;
         }
     }
-
-    // VDU 23, 0, &A0, sid; &49, 38, bmid; :  Render To Bitmap
-    void render_to_bitmap() {
-        auto bmid = m_proc->readWord_t();
-        if (bmid < 0) {
-            return;
-        }
-
-        auto start = millis();
-        auto size = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
-        p3d::Renderer renderer;
-
-        renderer.clear = p3d::REND_CLEAR;
-        renderer.clearColor = p3d::PIXELBLACK;
-        auto bkgbmp = getBitmap(258).get();
-        if (bkgbmp) {
-            renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
-            renderer.clear = p3d::REND_BACKGROUND;
-        }
-
-        renderer.z_buffer = m_zeta;
-        rendererInit(&renderer, size, &m_backend );
-        rendererSetCamera(&renderer,(p3d::Vec4i){0,0,size.x,size.y});
-
-        p3d::Scene scene;
-        sceneInit(&scene);
-        p3d::rendererSetScene(&renderer, &scene);
-
-        for (auto object = m_objects->begin(); object != m_objects->end(); object++) {
-            object->second.bind();
-            if (object->second.m_modified) {
-                object->second.m_is_camera = false;
-                object->second.update_transformation_matrix();
-                //object->second.dump();
-            }
-            if (object->second.m_modified_loc) {
-                object->second.m_is_camera = false;
-                object->second.update_transformation_matrix_loc();
-                //object->second.dump();
-            }
-            sceneAddRenderable(&scene, p3d::object_as_renderable(&object->second.m_object));
-        }
-
-        // Set the projection matrix
-        renderer.camera_projection =
-            p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)size.x / (p3d::F_TYPE)size.y, 0.5);
-
-        if (m_camera.m_modified) {
-            m_camera.m_is_camera = true;
-            m_camera.compute_transformation_matrix();
-        }
-        if (m_camera.m_modified_loc) {
-            m_camera.m_is_camera = true;
-            m_camera.compute_transformation_matrix_local();
-        }
-        //debug_log("Camera:\n");
-        // m_camera.dump();
-        renderer.camera_view = m_camera.m_transform;
-
-        if (m_scene.m_modified) {
-            m_scene.compute_transformation_matrix();
-        }
-        scene.transform = m_scene.m_transform;
-
-        //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
-        //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
-
-        rendererRender(&renderer);
-
-        // Apply dithering to the rendered image before copying to the destination bitmap
-        switch (m_dither_type) {
-            case 0:
-                break; // no dithering applied
-            case 1:
-                dither_bayer((uint8_t*)m_frame, m_width, m_height);
-                break;
-            case 2:
-                dither_floyd_steinberg((uint8_t*)m_frame, m_width, m_height);
-                break;
-            default:
-                m_dither_type = 0; // no dithering applied
-                debug_log("Invalid dithering type %u\n", m_dither_type);
-                break;
-        }
-
-        auto stop = millis();
-        auto diff = stop - start;
-        float fps = 1000.0 / diff;
-        printf("Render to %ux%u took %u ms (%.2f FPS)\n", m_width, m_height, diff, fps);
-        //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
-        //debug_log("Final data:  %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
-    }
-
 
     void dither_bayer(uint8_t* rgba, int width, int height) {
         static const uint8_t bayer[4][4] = {

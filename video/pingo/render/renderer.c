@@ -258,16 +258,16 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
 }
 
 int rendererRender(Renderer * r) {
-    int pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
+    int num_pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
 
-    memset(r->z_buffer, 0, pixels * sizeof (PingoDepth));
+    memset(r->z_buffer, 0, num_pixels * sizeof (PingoDepth));
 
-    Pixel* frameBuffer = r->frameBuffer.pixels;
+    Pixel* framePixels = r->frameBuffer.pixels;
     if (r->clear == REND_CLEAR) {
-        memset(frameBuffer, r->clearColor.c, pixels * sizeof(Pixel));
+        memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
     } else if (r->clear == REND_BACKGROUND) {
-        Pixel* backgroundBuffer = r->background.pixels;
-        memcpy(frameBuffer, backgroundBuffer, pixels * sizeof(Pixel));
+        Pixel* backgroundPixels = r->background.pixels;
+        memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
     }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
