@@ -236,13 +236,13 @@ typedef struct tag_Pingo3dControl {
     uint32_t            m_size;             // Used to verify the existence of this structure
     VDUStreamProcessor* m_proc;             // Used by subcommands to obtain more data
     p3d::BackEnd        m_backend;          // Used by the renderer
-    p3d::Pixel*         m_frame;            // Frame buffer for rendered pixels
-    p3d::PingoDepth*    m_zeta;             // Zeta buffer for depth information
-    p3d::Pixel*         m_background;       // Background bitmap for clearing the frame buffer
+    // p3d::Pixel*         m_frame;            // Frame buffer for rendered pixels
+    // p3d::Pixel*         m_background;       // Background bitmap for clearing the frame buffer
     p3d::Pixel          m_clearColor;        // Color to clear the frame buffer
     int                 m_clear;            // Clear type for the frame buffer
     uint16_t            m_width;            // Width of final render in pixels
     uint16_t            m_height;           // Height of final render in pixels
+    p3d::Renderer       m_renderer;         // Renderer settings
     Transformable       m_camera;           // Camera transformation settings
     Transformable       m_scene;            // Scene transformation settings
     std::map<uint16_t, p3d::Mesh>* m_meshes;    // Map of meshes for use by objects
@@ -255,7 +255,7 @@ typedef struct tag_Pingo3dControl {
 
     // VDU 23, 0, &A0, sid; &49, 0, 1 :  Initialize Control Structure
     void initialize(VDUStreamProcessor& processor, uint16_t width, uint16_t height) {
-        debug_log("initialize: pingo creating control structure for %ux%u scene\n", width, height);
+        printf("initialize: pingo creating control structure for %ux%u scene\n", width, height);
         memset(this, 0, sizeof(tag_Pingo3dControl));
         m_tag = PINGO_3D_CONTROL_TAG;
         m_size = sizeof(tag_Pingo3dControl);
@@ -265,9 +265,25 @@ typedef struct tag_Pingo3dControl {
         m_scene.initialize_scale();
 
         auto frame_size = (uint32_t) width * (uint32_t) height;
+        auto frame_dims = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
+
+        rendererSetCamera(&m_renderer,(p3d::Vec4i){0,0,frame_dims.x,frame_dims.y});
+        printf("Camera set to %ux%u\n", frame_dims.x, frame_dims.y);
 
         auto tgtbmp = getBitmap(257).get();
-        m_frame = (p3d::Pixel*) tgtbmp->data;
+        m_renderer.frameBuffer.pixels = (p3d::Pixel*) tgtbmp->data;
+        printf("Frame buffer set to %p\n", m_renderer.frameBuffer.pixels);
+
+        m_renderer.clear = p3d::REND_CLEAR;
+        m_renderer.clearColor = p3d::PIXELBLACK;
+        auto bkgbmp = getBitmap(258).get();
+        if (bkgbmp) {
+            m_renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
+            m_renderer.clear = p3d::REND_BACKGROUND;
+        }
+        printf("Background set to %p\n", m_renderer.background.pixels);
+
+        rendererInit(&m_renderer, frame_dims, &m_backend );
 
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.drawPixel = NULL;
@@ -275,6 +291,8 @@ typedef struct tag_Pingo3dControl {
 
         m_meshes = new std::map<uint16_t, p3d::Mesh>;
         m_objects = new std::map<uint16_t, TexObject>;
+
+        printf("Pingo3dControl initialized\n");
     }
 
     // VDU 23, 0, &A0, sid; &49, 38, bmid; :  Render To Bitmap
@@ -285,24 +303,12 @@ typedef struct tag_Pingo3dControl {
         }
 
         auto start = millis();
-        auto size = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
-        p3d::Renderer renderer;
 
-        renderer.clear = p3d::REND_CLEAR;
-        renderer.clearColor = p3d::PIXELBLACK;
-        auto bkgbmp = getBitmap(258).get();
-        if (bkgbmp) {
-            renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
-            renderer.clear = p3d::REND_BACKGROUND;
-        }
-
-        renderer.z_buffer = m_zeta;
-        rendererInit(&renderer, size, &m_backend );
-        rendererSetCamera(&renderer,(p3d::Vec4i){0,0,size.x,size.y});
+        auto frame_dims = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
 
         p3d::Scene scene;
         sceneInit(&scene);
-        p3d::rendererSetScene(&renderer, &scene);
+        p3d::rendererSetScene(&m_renderer, &scene);
 
         for (auto object = m_objects->begin(); object != m_objects->end(); object++) {
             object->second.bind();
@@ -320,8 +326,7 @@ typedef struct tag_Pingo3dControl {
         }
 
         // Set the projection matrix
-        renderer.camera_projection =
-            p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)size.x / (p3d::F_TYPE)size.y, 0.5);
+        m_renderer.camera_projection = p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)frame_dims.x / (p3d::F_TYPE)frame_dims.y, 0.5);
 
         if (m_camera.m_modified) {
             m_camera.m_is_camera = true;
@@ -333,7 +338,7 @@ typedef struct tag_Pingo3dControl {
         }
         //debug_log("Camera:\n");
         // m_camera.dump();
-        renderer.camera_view = m_camera.m_transform;
+        m_renderer.camera_view = m_camera.m_transform;
 
         if (m_scene.m_modified) {
             m_scene.compute_transformation_matrix();
@@ -343,17 +348,17 @@ typedef struct tag_Pingo3dControl {
         //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
         //debug_log("Destination: %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
 
-        rendererRender(&renderer);
+        rendererRender(&m_renderer);
 
         // Apply dithering to the rendered image before copying to the destination bitmap
         switch (m_dither_type) {
             case 0:
                 break; // no dithering applied
             case 1:
-                dither_bayer((uint8_t*)m_frame, m_width, m_height);
+                dither_bayer((uint8_t*)m_renderer.frameBuffer.pixels, m_width, m_height);
                 break;
             case 2:
-                dither_floyd_steinberg((uint8_t*)m_frame, m_width, m_height);
+                dither_floyd_steinberg((uint8_t*)m_renderer.frameBuffer.pixels, m_width, m_height);
                 break;
             default:
                 m_dither_type = 0; // no dithering applied
@@ -365,8 +370,6 @@ typedef struct tag_Pingo3dControl {
         auto diff = stop - start;
         float fps = 1000.0 / diff;
         printf("Render to %ux%u took %u ms (%.2f FPS)\n", m_width, m_height, diff, fps);
-        //debug_log("Frame data:  %02hX %02hX %02hX %02hX\n", m_frame->r, m_frame->g, m_frame->b, m_frame->a);
-        //debug_log("Final data:  %02hX %02hX %02hX %02hX\n", dst_pix->r, dst_pix->g, dst_pix->b, dst_pix->a);
     }
 
     // VDU 23, 0, &A0, sid; &49, 0, 0 :  Deinitialize Control Structure
@@ -1167,7 +1170,7 @@ extern "C" {
 
     p3d::Pixel* static_get_frame_buffer(p3d::Renderer* ren, p3d::BackEnd* backEnd) {
         auto p_this = (struct tag_Pingo3dControl*) backEnd->clientCustomData;
-        return p_this->m_frame;
+        return p_this->m_renderer.frameBuffer.pixels;
     }
 
 #if DEBUG

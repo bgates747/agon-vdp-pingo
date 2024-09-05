@@ -244,6 +244,7 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
 }
 
 int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
+    printf("Initalizing Renderer\n");
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
     renderingFunctions[RENDERABLE_SCENE] = & renderScene;
     renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
@@ -251,13 +252,13 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     r->scene = 0;
     r->backEnd = backEnd;
 
-    int e = 0;
-    e = texture_init( & (r->frameBuffer), size, backEnd->getFrameBuffer(r, backEnd));
-    if (e) return e;
+    r->frameBuffer.size = size;
+    printf("Frame buffer initialized\n");
 
     int zsize = sizeof(PingoDepth) * size.x * size.y;
     r->z_buffer = (PingoDepth*) heap_caps_malloc(zsize, MALLOC_CAP_SPIRAM);
-
+    printf("Z buffer initialized\n");
+    printf("Renderer initialized\n");
     return 0;
 }
 
