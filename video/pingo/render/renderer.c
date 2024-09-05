@@ -273,6 +273,8 @@ int rendererRender(Renderer * r) {
     } else if (r->clear == REND_BACKGROUND) {
         Pixel* backgroundPixels = r->background.pixels;
         memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
+    } else if (r->clear == REND_PANO) {
+        renderPanoBackground(r);
     }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
@@ -380,4 +382,112 @@ void panoInit(Renderer * renderer, Pixel *pixels, Vec2i size, float fov_y_rad, i
     renderer->pano.yaw = 0.0f;  // Initial yaw angle set to 0 (facing forward)
     renderer->pano.view_height = renderer->pano.size.y * (renderer->pano.fov_y / M_PI);  // Visible height in texture based on FOV
     renderer->pano.half_viewport_width = renderer->pano.viewport_width / 2;  // Half of the viewport width
+}
+
+void renderPanoBackground(Renderer *r) {
+    // Get dimensions and data pointers
+    int framebufferWidth = r->frameBuffer.size.x;
+    int framebufferHeight = r->frameBuffer.size.y;
+    int panoWidth = r->pano.size.x;
+    int panoHeight = r->pano.size.y;
+
+    Pixel* framePixels = r->frameBuffer.pixels;
+    Pixel* panoPixels = r->pano.pixels;
+
+    // Precomputed mappings for horizontal and vertical offsets
+    int horizontalMapping[framebufferWidth];
+    int verticalMapping[framebufferHeight];
+
+    // Prepare the pano rendering, filling out the mappings
+    preparePanoRendering(&r->pano, horizontalMapping, verticalMapping);
+
+    // Loop through each scanline of the framebuffer
+    for (int y = 0; y < framebufferHeight; y++) {
+        // Calculate source vertical offset from pano
+        int panoY = verticalMapping[y];
+        
+        // Pointer to the start of the destination scanline in the framebuffer
+        Pixel* destScanline = framePixels + y * framebufferWidth;
+
+        // Calculate how much of the pano image can be copied in one go
+        int x = 0;
+        while (x < framebufferWidth) {
+            // Calculate source horizontal offset from pano
+            int panoX = horizontalMapping[x];
+
+            // Pointer to the start of the source scanline in the pano
+            Pixel* srcScanline = panoPixels + panoY * panoWidth + panoX;
+
+            // Calculate the number of pixels to copy before needing to wrap around
+            int remainingPixels = framebufferWidth - x;
+            int pixelsToEndOfPano = panoWidth - panoX;
+            int pixelsToCopy = remainingPixels < pixelsToEndOfPano ? remainingPixels : pixelsToEndOfPano;
+
+            // Copy the pixels from pano to framebuffer
+            memcpy(destScanline + x, srcScanline, pixelsToCopy * sizeof(Pixel));
+
+            // Advance in the framebuffer
+            x += pixelsToCopy;
+
+            // If we reached the end of the pano's width, wrap around
+            if (panoX + pixelsToCopy >= panoWidth) {
+                panoX = 0;  // Start at the beginning of the pano again
+            }
+        }
+    }
+}
+
+
+// Helper to set yaw angle and update state
+void setYaw(Pano* pano, float new_yaw) {
+    // Update yaw angle, keep it within the range [0, 2π)
+    pano->yaw = fmod(new_yaw, 2 * M_PI);
+    if (pano->yaw < 0) pano->yaw += 2 * M_PI;
+}
+
+// Helper to compute the horizontal pixel mapping for the current yaw
+void computeHorizontalMapping(Pano* pano, int* horizontalMapping) {
+    int imageWidth = pano->size.x;
+    int viewportWidth = pano->viewport_width;
+    float yaw = pano->yaw;
+
+    // Loop through each pixel column in the viewport
+    for (int x = 0; x < viewportWidth; x++) {
+        // Calculate the longitude for the current pixel in the viewport
+        float longitude = ((float)x / viewportWidth) * 2 * M_PI - M_PI;
+
+        // Adjust longitude by the current yaw
+        float adjustedLongitude = fmod(longitude + yaw, 2 * M_PI);
+        if (adjustedLongitude < 0) adjustedLongitude += 2 * M_PI;
+
+        // Map adjusted longitude back to image coordinates (0 to imageWidth)
+        horizontalMapping[x] = (int)((adjustedLongitude + M_PI) / (2 * M_PI) * imageWidth);
+    }
+}
+
+// Helper to compute the vertical pixel mapping based on FOV
+void computeVerticalMapping(Pano* pano, int* verticalMapping) {
+    int imageHeight = pano->size.y;
+    int viewportHeight = pano->viewport_height;
+    float verticalStep = pano->vertical_step;
+
+    // Loop through each pixel row in the viewport
+    for (int y = 0; y < viewportHeight; y++) {
+        // Compute the corresponding y in the background image
+        verticalMapping[y] = (int)(y * verticalStep);
+        
+        // Ensure the index is within bounds of the image height
+        if (verticalMapping[y] >= imageHeight) {
+            verticalMapping[y] = imageHeight - 1;
+        }
+    }
+}
+
+// Combined helper function to prepare all parameters for rendering
+void preparePanoRendering(Pano* pano, int* horizontalMapping, int* verticalMapping) {
+    // Compute the horizontal mapping for the current yaw
+    computeHorizontalMapping(pano, horizontalMapping);
+
+    // Compute the vertical mapping based on the current FOV
+    computeVerticalMapping(pano, verticalMapping);
 }

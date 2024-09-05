@@ -920,6 +920,8 @@ typedef struct tag_Pingo3dControl {
             m_camera.m_rotation.z = 0;
             m_camera.m_modified = true;
 
+            m_renderer.pano.yaw = yaw;
+
             // // Debug output
             // printf("Camera: x=%.2f, y=%.2f, z=%.2f Target: x=%.2f, y=%.2f, z=%.2f Angle: %.2f degrees\n", 
             //     camera_position.x, camera_position.y, camera_position.z, 

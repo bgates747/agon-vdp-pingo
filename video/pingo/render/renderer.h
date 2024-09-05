@@ -49,6 +49,19 @@ extern int rendererSetCamera(Renderer *r, Vec4i camera);
 
 extern void panoInit(Renderer * renderer, Pixel *pixels, Vec2i size, float fov_y_rad, int viewport_width, int viewport_height);
 
+void renderPanoBackground(Renderer *r);
+
+// Helper to set yaw angle and update state
+void setYaw(Pano* pano, float new_yaw);
+
+// Helper to compute the horizontal pixel mapping for the current yaw
+void computeHorizontalMapping(Pano* pano, int* horizontalMapping);
+
+// Helper to compute the vertical pixel mapping based on FOV
+void computeVerticalMapping(Pano* pano, int* verticalMapping);
+
+// Combined helper function to prepare all parameters for rendering
+void preparePanoRendering(Pano* pano, int* horizontalMapping, int* verticalMapping);
 
 // SCRATCHPIXEL FUNCTIONS
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
@@ -59,4 +72,3 @@ static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f
 static Pixel shade(const Texture* texture, Vec2f uv);
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight);
 void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov);
-Pixel rgba2222_to_pixel(uint8_t data);
