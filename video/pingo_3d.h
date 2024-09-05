@@ -22,6 +22,7 @@ namespace p3d {
         #include "pingo/render/scene.h"
         #include "pingo/render/backend.h"
         #include "pingo/render/depth.h"
+        #include "pingo/render/pano.h"
 
     } // extern "C"
 
@@ -276,8 +277,19 @@ typedef struct tag_Pingo3dControl {
 
         m_renderer.clear = p3d::REND_CLEAR;
         m_renderer.clearColor = p3d::PIXELBLACK;
+
+        float fov_y_rad = 1.5707963267948966f; // 90 degrees in radians
+        auto panobmp = getBitmap(259).get();
+        if (panobmp) {
+            p3d::Vec2i pano_dims = {panobmp->width, panobmp->height};
+            panoInit(&m_renderer, (p3d::Pixel*) panobmp->data, pano_dims, fov_y_rad, m_width, m_height);
+            m_renderer.pano.pixels = (p3d::Pixel*) panobmp->data;
+            m_renderer.clear = p3d::REND_PANO;
+            printf("Pano set to %p\n", m_renderer.pano.pixels);
+        }
+
         auto bkgbmp = getBitmap(258).get();
-        if (bkgbmp) {
+        if (bkgbmp && !panobmp) {
             m_renderer.background.pixels = (p3d::Pixel*) bkgbmp->data;
             m_renderer.clear = p3d::REND_BACKGROUND;
         }

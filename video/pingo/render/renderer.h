@@ -1,10 +1,12 @@
 #pragma once
 
-#include "depth.h"
-#include "texture.h"
-#include "renderable.h"
-#include "pixel.h"
 #include "../math/vec4.h"
+
+#include "renderable.h"
+#include "depth.h"
+#include "pixel.h"
+#include "texture.h"
+#include "pano.h"
 
 typedef struct tag_Scene Scene;
 typedef struct tag_BackEnd BackEnd;
@@ -12,7 +14,8 @@ typedef struct tag_BackEnd BackEnd;
 typedef enum {
     REND_NO_CLEAR = 0,  // 0: No clearing
     REND_CLEAR = 1,     // 1: Clear the frameBuffer
-    REND_BACKGROUND = 2 // 2: Clear with a background texture
+    REND_BACKGROUND = 2, // 2: Clear with a background texture
+    REND_PANO = 3       // 3: Clear with a pano texture
 } RenderClearType;
 
 typedef struct tag_Renderer{
@@ -32,15 +35,20 @@ typedef struct tag_Renderer{
 
     BackEnd * backEnd;
 
+    Pano pano;
+
 } Renderer;
 
 extern int rendererRender(Renderer *);
 
-extern int rendererInit(Renderer *, Vec2i size, struct tag_BackEnd * backEnd);
+extern int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd);
 
 extern int rendererSetScene(Renderer *r, Scene *s);
 
 extern int rendererSetCamera(Renderer *r, Vec4i camera);
+
+extern void panoInit(Renderer * renderer, Pixel *pixels, Vec2i size, float fov_y_rad, int viewport_width, int viewport_height);
+
 
 // SCRATCHPIXEL FUNCTIONS
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html

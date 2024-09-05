@@ -357,3 +357,27 @@ void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspec
     *far = b / (a + 1.0);
     *near = b / (a - 1.0);
 }
+
+// Function to create a Pano object from pixel data and other necessary parameters
+void panoInit(Renderer * renderer, Pixel *pixels, Vec2i size, float fov_y_rad, int viewport_width, int viewport_height) {
+    
+    // Set size and pixel data from the Bitmap
+    renderer->pano.size = size;
+    renderer->pano.pixels = (Pixel*)pixels;
+
+    // Set the vertical field of view (FOV) in radians
+    renderer->pano.fov_y = fov_y_rad;
+
+    // Set the viewport dimensions
+    renderer->pano.viewport_width = viewport_width;
+    renderer->pano.viewport_height = viewport_height;
+
+    // Precompute values based on FOV and texture dimensions
+    renderer->pano.vertical_step = (float)renderer->pano.size.y / (renderer->pano.viewport_height * (renderer->pano.fov_y / M_PI));  // FOV is in radians
+    renderer->pano.aspect_ratio = (float)renderer->pano.viewport_width / (float)renderer->pano.viewport_height;
+
+    // Initialize rendering state variables
+    renderer->pano.yaw = 0.0f;  // Initial yaw angle set to 0 (facing forward)
+    renderer->pano.view_height = renderer->pano.size.y * (renderer->pano.fov_y / M_PI);  // Visible height in texture based on FOV
+    renderer->pano.half_viewport_width = renderer->pano.viewport_width / 2;  // Half of the viewport width
+}
