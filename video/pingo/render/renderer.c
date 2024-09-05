@@ -10,6 +10,7 @@
 #include "scene.h"
 #include "rasterizer.h"
 #include "object.h"
+#include <esp_heap_caps.h>
 
 #define MIN(a, b)(((a) < (b)) ? (a) : (b))
 #define MAX(a, b)(((a) > (b)) ? (a) : (b))
@@ -253,6 +254,9 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     int e = 0;
     e = texture_init( & (r->frameBuffer), size, backEnd->getFrameBuffer(r, backEnd));
     if (e) return e;
+
+    int zsize = sizeof(PingoDepth) * size.x * size.y;
+    r->z_buffer = (PingoDepth*) heap_caps_malloc(zsize, MALLOC_CAP_SPIRAM);
 
     return 0;
 }

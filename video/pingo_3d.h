@@ -269,13 +269,6 @@ typedef struct tag_Pingo3dControl {
         auto tgtbmp = getBitmap(257).get();
         m_frame = (p3d::Pixel*) tgtbmp->data;
 
-        auto size = sizeof(p3d::PingoDepth) * frame_size;
-        m_zeta = (p3d::PingoDepth*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-        if (!m_zeta) {
-            debug_log("initialize: failed to allocate %u bytes for zeta\n", size);
-            show_free_ram();
-        }
-
         m_backend.getFrameBuffer = &static_get_frame_buffer;
         m_backend.drawPixel = NULL;
         m_backend.clientCustomData = (void*) this;
