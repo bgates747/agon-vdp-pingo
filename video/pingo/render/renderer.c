@@ -310,8 +310,8 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
 
         // Iterate over pixels between the intersections on the current scanline
         for (int scrX = x_start, index = scrY * scrSize.x + x_start; scrX <= x_end; ++scrX, ++index) {
-            sample.x = scrX + 0.5f;
-            sample.y = scrY + 0.5f;
+            sample.x = scrX;
+            sample.y = scrY;
 
             // Barycentric coordinates for pixel coverage
             float w0 = edge(p1, p2, &sample) * inv_area;

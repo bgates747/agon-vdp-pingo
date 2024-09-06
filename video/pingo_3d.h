@@ -268,7 +268,8 @@ typedef struct tag_Pingo3dControl {
         p3d::Camera camera;
         camera.near = 1.0;
         camera.far = 2500.0;
-        camera.fov = 1.5707963267948966f/2.0f;
+        // camera.fov = 1.5707963267948966f/2.0f;
+        camera.fov = 0.5f;
         camera.aspect = (float)frame_dims.x / (float)frame_dims.y;
         camera.projection = p3d::mat4Perspective(camera.near, camera.far, camera.aspect, camera.fov);
         m_renderer.camera = camera;
