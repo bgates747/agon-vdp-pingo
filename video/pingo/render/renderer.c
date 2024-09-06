@@ -224,63 +224,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
-    float inv_area = 1.0f / edge(p0, p1, p2);
-
-    Vec3f pixel, sample;
-    Vec2f intersections[2];
-    int intersection_count;
-
-    // Iterate over scanlines within the bounding box
-    for (int scrY = y0; scrY <= y1; ++scrY) {
-        // Find the intersection points of the current scanline with the triangle edges
-        find_scanline_intersections(p0, p1, p2, scrY, intersections, &intersection_count);
-
-        // Continue only if exactly two intersection points are found
-        if (intersection_count != 2) continue;
-
-        // Sort the intersections by x-coordinate
-        int x_start = (int)MAX(x0, (int)intersections[0].x);
-        int x_end = (int)MIN(x1, (int)intersections[1].x);
-
-        // Iterate over pixels between the intersections on the current scanline
-        for (int scrX = x_start, index = scrY * scrSize.x + x_start; scrX <= x_end; ++scrX, ++index) {
-            sample.x = scrX + 0.5f;
-            sample.y = scrY + 0.5f;
-
-            // Barycentric coordinates for pixel coverage
-            float w0 = edge(p1, p2, &sample) * inv_area;
-            float w1 = edge(p2, p0, &sample) * inv_area;
-            float w2 = edge(p0, p1, &sample) * inv_area;
-
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
-                float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
-                if (inv_z < -near) {
-                    continue;
-                }
-                float z = 1.0f / inv_z;
-
-                if (depth_check(r->z_buffer, scrX + scrY * scrSize.x, -inv_z)) {
-                    continue;
-                }
-
-                depth_write(r->z_buffer, scrX + scrY * scrSize.x, -inv_z);
-
-                // Interpolate the texture coordinates
-                Vec2f uv;
-                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
-                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
-
-                // Shade the pixel and update the color buffer
-                Pixel color = shade(texture, uv);
-
-                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
-            }
-        }
-    }
-    // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
-}
-
 float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
     return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
 }
@@ -346,6 +289,63 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 }
 
 // NOT SCRATCHPIXEL BUT NOT PINGO EITHER
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
+    float inv_area = 1.0f / edge(p0, p1, p2);
+
+    Vec3f pixel, sample;
+    Vec2f intersections[2];
+    int intersection_count;
+
+    // Iterate over scanlines within the bounding box
+    for (int scrY = y0; scrY <= y1; ++scrY) {
+        // Find the intersection points of the current scanline with the triangle edges
+        find_scanline_intersections(p0, p1, p2, scrY, intersections, &intersection_count);
+
+        // Continue only if exactly two intersection points are found
+        if (intersection_count != 2) continue;
+
+        // Sort the intersections by x-coordinate
+        int x_start = (int)MAX(x0, (int)intersections[0].x);
+        int x_end = (int)MIN(x1, (int)intersections[1].x);
+
+        // Iterate over pixels between the intersections on the current scanline
+        for (int scrX = x_start, index = scrY * scrSize.x + x_start; scrX <= x_end; ++scrX, ++index) {
+            sample.x = scrX + 0.5f;
+            sample.y = scrY + 0.5f;
+
+            // Barycentric coordinates for pixel coverage
+            float w0 = edge(p1, p2, &sample) * inv_area;
+            float w1 = edge(p2, p0, &sample) * inv_area;
+            float w2 = edge(p0, p1, &sample) * inv_area;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
+                if (inv_z < -near) {
+                    continue;
+                }
+                float z = 1.0f / inv_z;
+
+                if (depth_check(r->z_buffer, scrX + scrY * scrSize.x, -inv_z)) {
+                    continue;
+                }
+
+                depth_write(r->z_buffer, scrX + scrY * scrSize.x, -inv_z);
+
+                // Interpolate the texture coordinates
+                Vec2f uv;
+                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
+                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
+
+                // Shade the pixel and update the color buffer
+                Pixel color = shade(texture, uv);
+
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
+            }
+        }
+    }
+    // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
+}
+
 // iterative depth functions
 // Helper function to find intersection of a line segment with the screen bounds
 static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out) {
