@@ -16,9 +16,9 @@ Mat4 mat4Identity() {
 }
 
 Mat4 mat4Translate(Vec3f l) {
-    F_TYPE x = l.x;
-    F_TYPE y = l.y;
-    F_TYPE z = l.z;
+    float x = l.x;
+    float y = l.y;
+    float z = l.z;
     return (Mat4){{
             1,  0,  0, x,
             0,  1,  0, y,
@@ -27,9 +27,9 @@ Mat4 mat4Translate(Vec3f l) {
         }};
 }
 
-Mat4 mat4RotateX(F_TYPE phi) {
-    F_TYPE s = sin(phi);
-    F_TYPE c = cos(phi);
+Mat4 mat4RotateX(float phi) {
+    float s = sin(phi);
+    float c = cos(phi);
     return (Mat4){{
             1,  0,  0, 0,
             0,  c, -s, 0,
@@ -37,9 +37,9 @@ Mat4 mat4RotateX(F_TYPE phi) {
             0,  0,  0, 1,
         }};
 }
-Mat4 mat4RotateY(F_TYPE phi) {
-    F_TYPE s = sin(phi);
-    F_TYPE c = cos(phi);
+Mat4 mat4RotateY(float phi) {
+    float s = sin(phi);
+    float c = cos(phi);
     return (Mat4){{
             c,  0,  s, 0,
             0,  1,  0, 0,
@@ -47,9 +47,9 @@ Mat4 mat4RotateY(F_TYPE phi) {
             0,  0,  0, 1,
         }};
 }
-Mat4 mat4RotateZ(F_TYPE phi) {
-    F_TYPE s = sin(phi);
-    F_TYPE c = cos(phi);
+Mat4 mat4RotateZ(float phi) {
+    float s = sin(phi);
+    float c = cos(phi);
     return (Mat4){{
             c, -s,  0, 0,
             s,  c,  0, 0,
@@ -59,9 +59,9 @@ Mat4 mat4RotateZ(F_TYPE phi) {
 }
 
 extern Mat4 mat4Scale(Vec3f s) {
-    F_TYPE p = s.x;
-    F_TYPE q = s.y;
-    F_TYPE r = s.z;
+    float p = s.x;
+    float q = s.y;
+    float r = s.z;
     return (Mat4){{
             p,  0,  0, 0,
                     0,  q,  0, 0,
@@ -71,38 +71,38 @@ extern Mat4 mat4Scale(Vec3f s) {
 }
 
 Vec2f mat4MultiplyVec2(Vec2f *v, Mat4 *t) {
-    F_TYPE a = v->x * t->elements[0] + v->y * t->elements[1] + 1.0 * t->elements[2] + 1.0 * t->elements[3];
-    F_TYPE b = v->x * t->elements[4] + v->y * t->elements[5] + 1.0 * t->elements[6] + 1.0 * t->elements[7];
+    float a = v->x * t->elements[0] + v->y * t->elements[1] + 1.0 * t->elements[2] + 1.0 * t->elements[3];
+    float b = v->x * t->elements[4] + v->y * t->elements[5] + 1.0 * t->elements[6] + 1.0 * t->elements[7];
     return (Vec2f){a,b};
 }
 
 Vec3f mat4MultiplyVec3(Vec3f *v, Mat4 *t) {
-    F_TYPE a = v->x * t->elements[0] + v->y * t->elements[1] + v->z * t->elements[2] + 1.0 * t->elements[3];
-    F_TYPE b = v->x * t->elements[4] + v->y * t->elements[5] + v->z * t->elements[6] + 1.0 * t->elements[7];
-    F_TYPE c = v->x * t->elements[8] + v->y * t->elements[9] + v->z * t->elements[10] + 1.0 * t->elements[11];
+    float a = v->x * t->elements[0] + v->y * t->elements[1] + v->z * t->elements[2] + 1.0 * t->elements[3];
+    float b = v->x * t->elements[4] + v->y * t->elements[5] + v->z * t->elements[6] + 1.0 * t->elements[7];
+    float c = v->x * t->elements[8] + v->y * t->elements[9] + v->z * t->elements[10] + 1.0 * t->elements[11];
     return (Vec3f){a,b,c};
 }
 
 Vec4f mat4MultiplyVec4(Vec4f *v, Mat4 *t) {
-    F_TYPE a = v->x * t->elements[0] + v->y * t->elements[1] + v->z * t->elements[2] + 1.0 * t->elements[3];
-    F_TYPE b = v->x * t->elements[4] + v->y * t->elements[5] + v->z * t->elements[6] + 1.0 * t->elements[7];
-    F_TYPE c = v->x * t->elements[8] + v->y * t->elements[9] + v->z * t->elements[10] + 1.0 * t->elements[11];
-    F_TYPE d = v->x * t->elements[12] + v->y * t->elements[13] + v->z * t->elements[14] + 1.0 * t->elements[15];
+    float a = v->x * t->elements[0] + v->y * t->elements[1] + v->z * t->elements[2] + 1.0 * t->elements[3];
+    float b = v->x * t->elements[4] + v->y * t->elements[5] + v->z * t->elements[6] + 1.0 * t->elements[7];
+    float c = v->x * t->elements[8] + v->y * t->elements[9] + v->z * t->elements[10] + 1.0 * t->elements[11];
+    float d = v->x * t->elements[12] + v->y * t->elements[13] + v->z * t->elements[14] + 1.0 * t->elements[15];
     return (Vec4f){a,b,c,d};
 }
 
 Vec4f mat4MultiplyVec4in( Vec4f *v, Mat4 *t ) {
-    F_TYPE a = v->x * t->elements[0] + v->y * t->elements[4] + v->z * t->elements[8] + 1.0 * t->elements[12];
-    F_TYPE b = v->x * t->elements[1] + v->y * t->elements[5] + v->z * t->elements[9] + 1.0 * t->elements[13];
-    F_TYPE c = v->x * t->elements[2] + v->y * t->elements[6] + v->z * t->elements[10] + 1.0 * t->elements[14];
-    F_TYPE d = v->x * t->elements[3] + v->y * t->elements[7] + v->z * t->elements[1] + 1.0 * t->elements[15];
+    float a = v->x * t->elements[0] + v->y * t->elements[4] + v->z * t->elements[8] + 1.0 * t->elements[12];
+    float b = v->x * t->elements[1] + v->y * t->elements[5] + v->z * t->elements[9] + 1.0 * t->elements[13];
+    float c = v->x * t->elements[2] + v->y * t->elements[6] + v->z * t->elements[10] + 1.0 * t->elements[14];
+    float d = v->x * t->elements[3] + v->y * t->elements[7] + v->z * t->elements[1] + 1.0 * t->elements[15];
     return (Vec4f){a,b,c,d};
 }
 
 Mat4 mat4MultiplyM( Mat4 * m1, Mat4 * m2) {
     Mat4 out;
-    F_TYPE * a = m2->elements;
-    F_TYPE * b = m1->elements;
+    float * a = m2->elements;
+    float * b = m1->elements;
 
     out.elements[0x0] = a[0x0] * b[0x0] + a[0x1] * b[0x4] + a[0x2] * b[0x8] + a[0x3] * b[0xc];
     out.elements[0x1] = a[0x0] * b[0x1] + a[0x1] * b[0x5] + a[0x2] * b[0x9] + a[0x3] * b[0xd];
@@ -127,26 +127,26 @@ Mat4 mat4MultiplyM( Mat4 * m1, Mat4 * m2) {
     return out;
 }
 
-F_TYPE mat4Determinant(Mat4 * mat)
+float mat4Determinant(Mat4 * mat)
 {
-    F_TYPE * a = mat->elements;
+    float * a = mat->elements;
     float a00 = a[0],  a01 = a[1],  a02 = a[2],  a03 = a[3],
             a10 = a[4],  a11 = a[5],  a12 = a[6],  a13 = a[7],
             a20 = a[8],  a21 = a[9],  a22 = a[10], a23 = a[11],
             a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
 
-    F_TYPE b00 = a00 * a11 - a01 * a10;
-    F_TYPE b01 = a00 * a12 - a02 * a10;
-    F_TYPE b02 = a00 * a13 - a03 * a10;
-    F_TYPE b03 = a01 * a12 - a02 * a11;
-    F_TYPE b04 = a01 * a13 - a03 * a11;
-    F_TYPE b05 = a02 * a13 - a03 * a12;
-    F_TYPE b06 = a20 * a31 - a21 * a30;
-    F_TYPE b07 = a20 * a32 - a22 * a30;
-    F_TYPE b08 = a20 * a33 - a23 * a30;
-    F_TYPE b09 = a21 * a32 - a22 * a31;
-    F_TYPE b10 = a21 * a33 - a23 * a31;
-    F_TYPE b11 = a22 * a33 - a23 * a32;
+    float b00 = a00 * a11 - a01 * a10;
+    float b01 = a00 * a12 - a02 * a10;
+    float b02 = a00 * a13 - a03 * a10;
+    float b03 = a01 * a12 - a02 * a11;
+    float b04 = a01 * a13 - a03 * a11;
+    float b05 = a02 * a13 - a03 * a12;
+    float b06 = a20 * a31 - a21 * a30;
+    float b07 = a20 * a32 - a22 * a30;
+    float b08 = a20 * a33 - a23 * a30;
+    float b09 = a21 * a32 - a22 * a31;
+    float b10 = a21 * a33 - a23 * a31;
+    float b11 = a22 * a33 - a23 * a32;
 
     // Calculate the determinant
     return b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
@@ -154,7 +154,7 @@ F_TYPE mat4Determinant(Mat4 * mat)
 
 Mat4 mat4Inverse(Mat4 * mat)
 {
-    F_TYPE * m = mat->elements;
+    float * m = mat->elements;
     float inv[16], det;
 
     inv[0] = m[5]  * m[10] * m[15] -

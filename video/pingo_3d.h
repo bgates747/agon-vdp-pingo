@@ -263,7 +263,7 @@ typedef struct tag_Pingo3dControl {
         m_scene.initialize_scale();
 
         auto frame_size = (uint32_t) m_width * (uint32_t) m_width;
-        auto frame_dims = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
+        auto frame_dims = p3d::Vec2i{(int)m_width, (int)m_height};
 
         p3d::Camera camera;
         camera.near = 1.0;
@@ -310,7 +310,7 @@ typedef struct tag_Pingo3dControl {
 
         auto start = millis();
 
-        auto frame_dims = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
+        auto frame_dims = p3d::Vec2i{(int)m_width, (int)m_height};
 
         p3d::Scene scene;
         sceneInit(&scene);
@@ -621,7 +621,7 @@ typedef struct tag_Pingo3dControl {
             if (stored_bitmap) {
                 auto bitmap = stored_bitmap.get();
                 if (bitmap) {
-                    auto size = p3d::Vec2i{(p3d::I_TYPE)bitmap->width, (p3d::I_TYPE)bitmap->height};
+                    auto size = p3d::Vec2i{(int)bitmap->width, (int)bitmap->height};
                     auto pix = (p3d::Pixel*) bitmap->data;
                     object->bind();
                     texture_init(&object->m_texture, size, pix);
@@ -632,38 +632,38 @@ typedef struct tag_Pingo3dControl {
         }
     }
 
-    p3d::F_TYPE convert_scale_value(int32_t value) {
-        static const p3d::F_TYPE factor = 1.0f / 256.0f;
-        return ((p3d::F_TYPE) value) * factor;
+    float convert_scale_value(int32_t value) {
+        static const float factor = 1.0f / 256.0f;
+        return ((float) value) * factor;
     }
 
-    p3d::F_TYPE convert_rotation_value(int32_t value) {
+    float convert_rotation_value(int32_t value) {
         if (value & 0x8000) {
             value = (int32_t)(int16_t)(uint16_t) value;
         }
-        static const p3d::F_TYPE factor = (2.0f * 3.1415926f) / 32767.0f;
-        return ((p3d::F_TYPE) value) * factor;
+        static const float factor = (2.0f * 3.1415926f) / 32767.0f;
+        return ((float) value) * factor;
     }
 
-    p3d::F_TYPE convert_translation_value(int32_t value) {
+    float convert_translation_value(int32_t value) {
         if (value & 0x8000) {
             value = (int32_t)(int16_t)(uint16_t) value;
         }
-        static const p3d::F_TYPE factor = 256.0f / 32767.0f;
-        return ((p3d::F_TYPE) value) * factor;
+        static const float factor = 256.0f / 32767.0f;
+        return ((float) value) * factor;
     }
 
-    p3d::F_TYPE convert_position_value(int32_t value) {
+    float convert_position_value(int32_t value) {
         if (value & 0x8000) {
             value = (int32_t)(int16_t)(uint16_t) value;
         }
-        static const p3d::F_TYPE factor = 1.0f / 32767.0f;
-        return ((p3d::F_TYPE) value) * factor;
+        static const float factor = 1.0f / 32767.0f;
+        return ((float) value) * factor;
     }
 
-    p3d::F_TYPE convert_texture_coordinate_value(int32_t value) {
-        static const p3d::F_TYPE factor = 1.0f / 65535.0f;
-        return ((p3d::F_TYPE) value) * factor;
+    float convert_texture_coordinate_value(int32_t value) {
+        static const float factor = 1.0f / 65535.0f;
+        return ((float) value) * factor;
     }
 
     // VDU 23, 0, &A0, sid; &49, 6, oid; scalex; :  Set Object X Scale Factor

@@ -1,23 +1,23 @@
 #pragma once
 
-#include "types.h"
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct Vec4i {
-    I_TYPE x;
-    I_TYPE y;
-    I_TYPE z;
-    I_TYPE w;
+    int x;
+    int y;
+    int z;
+    int w;
 } Vec4i;
 
 typedef struct Vec4f {
-    F_TYPE x;
-    F_TYPE y;
-    F_TYPE z;
-    F_TYPE w;
+    float x;
+    float y;
+    float z;
+    float w;
 } Vec4f;
 
 #ifdef __cplusplus

@@ -1,5 +1,5 @@
 #pragma once
-#include "types.h"
+
 #include "vec2.h"
 
 #ifdef __cplusplus
@@ -8,7 +8,7 @@ extern "C" {
 
 
 typedef struct Mat3 {
-    F_TYPE elements[9];
+    float elements[9];
 } Mat3;
 
 /* Returns identity
@@ -55,7 +55,7 @@ extern Mat3 mat3Inverse( Mat3 *v );
 extern Mat3 mat3Complete( Vec2f origin, Vec2f translation, Vec2f scale, float rotation );
 
 //Calculate determinant of matrix
-extern F_TYPE mat3Determinant(Mat3 * m);
+extern float mat3Determinant(Mat3 * m);
 
 //If a matrix has only translation some optimization can be done during rendering.
 extern int mat3IsOnlyTranslation(Mat3 *m);
