@@ -236,8 +236,6 @@ typedef struct tag_Pingo3dControl {
     uint32_t            m_size;             // Used to verify the existence of this structure
     VDUStreamProcessor* m_proc;             // Used by subcommands to obtain more data
     p3d::BackEnd        m_backend;          // Used by the renderer
-    // p3d::Pixel*         m_frame;            // Frame buffer for rendered pixels
-    // p3d::Pixel*         m_background;       // Background bitmap for clearing the frame buffer
     p3d::Pixel          m_clearColor;        // Color to clear the frame buffer
     int                 m_clear;            // Clear type for the frame buffer
     uint16_t            m_width;            // Width of final render in pixels
@@ -264,10 +262,17 @@ typedef struct tag_Pingo3dControl {
         m_camera.initialize_scale();
         m_scene.initialize_scale();
 
-        auto frame_size = (uint32_t) width * (uint32_t) height;
+        auto frame_size = (uint32_t) m_width * (uint32_t) m_width;
         auto frame_dims = p3d::Vec2i{(p3d::I_TYPE)m_width, (p3d::I_TYPE)m_height};
 
-        rendererSetCamera(&m_renderer,(p3d::Vec4i){0,0,frame_dims.x,frame_dims.y});
+        p3d::Camera camera;
+        camera.near = 1.0;
+        camera.far = 2500.0;
+        camera.fov = 1.5707963267948966f/2.0f;
+        camera.aspect = (float)frame_dims.x / (float)frame_dims.y;
+        camera.projection = p3d::mat4Perspective(camera.near, camera.far, camera.aspect, camera.fov);
+        m_renderer.camera = camera;
+        rendererSetCamera(&m_renderer, frame_dims);
         printf("Camera set to %ux%u\n", frame_dims.x, frame_dims.y);
 
         auto tgtbmp = getBitmap(257).get();
@@ -325,9 +330,6 @@ typedef struct tag_Pingo3dControl {
             sceneAddRenderable(&scene, p3d::object_as_renderable(&object->second.m_object));
         }
 
-        // Set the projection matrix
-        m_renderer.camera_projection = p3d::mat4Perspective( 1, 2500.0, (p3d::F_TYPE)frame_dims.x / (p3d::F_TYPE)frame_dims.y, 0.5);
-
         if (m_camera.m_modified) {
             m_camera.m_is_camera = true;
             m_camera.compute_transformation_matrix();
@@ -338,7 +340,7 @@ typedef struct tag_Pingo3dControl {
         }
         //debug_log("Camera:\n");
         // m_camera.dump();
-        m_renderer.camera_view = m_camera.m_transform;
+        m_renderer.camera.view = m_camera.m_transform;
 
         if (m_scene.m_modified) {
             m_scene.compute_transformation_matrix();

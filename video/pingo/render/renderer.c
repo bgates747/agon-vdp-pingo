@@ -33,7 +33,7 @@ int renderSprite(Mat4 transform, Renderer * r, Renderable ren) {
     s->t = mat4MultiplyM( & s->t, & transform);
 
     //Apply camera translation
-    Mat4 newMat = mat4Translate((Vec3f) { -r->camera.x, -r->camera.y, 0 });
+    Mat4 newMat = mat4Translate((Vec3f) { -r->camera.translation.x, -r->camera.translation.y, 0 });
     s->t = mat4MultiplyM( & s->t, & newMat);
 
     rasterizer_draw_transformed(s->t, r, & s->frame);
@@ -89,9 +89,10 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     // MODEL MATRIX
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
 
-    // VIEW MATRIX
-    Mat4 v = r->camera_view;
-    Mat4 p = r->camera_projection;
+    // CAMERA VIEW AND PROJECTION MATRICES
+    Mat4 v = r->camera.view;
+    Mat4 p = r->camera.projection;
+    float near = r->camera.near;
 
     // CAMERA NORMAL
     Vec3f cameraNormal = { 
@@ -100,11 +101,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         v.elements[10]  // forward.z
     };
     cameraNormal = vec3Normalize(cameraNormal);
-
-    // get the camera attributes back out of its projection matrix
-    // float near, far, aspect, fov;
-    // mat4ExtractPerspective(&p, &near, &far, &aspect, &fov); // TODO: this gives -2499.840576 as the near value
-    float near = 1.0f; // hardcode until we get the correct near value from the camera
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
@@ -200,6 +196,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 
 
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
+    
     float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
@@ -267,13 +264,13 @@ int rendererRender(Renderer * r) {
 
     memset(r->z_buffer, 0, num_pixels * sizeof (PingoDepth));
 
-    Pixel* framePixels = r->frameBuffer.pixels;
-    if (r->clear == REND_CLEAR) {
-        memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
-    } else if (r->clear == REND_BACKGROUND) {
-        Pixel* backgroundPixels = r->background.pixels;
-        memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
-    }
+    // Pixel* framePixels = r->frameBuffer.pixels;
+    // if (r->clear == REND_CLEAR) {
+    //     memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
+    // } else if (r->clear == REND_BACKGROUND) {
+    //     Pixel* backgroundPixels = r->background.pixels;
+    //     memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
+    // }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
 
@@ -289,11 +286,9 @@ int rendererSetScene(Renderer * r, Scene * s) {
     return 0;
 }
 
-int rendererSetCamera(Renderer * r, Vec4i rect) {
-    r->camera = rect;
-    r->frameBuffer.size = (Vec2i) {
-            rect.z, rect.w
-};
+int rendererSetCamera(Renderer * r, Vec2i rect) {
+    r->camera.rect = rect;
+    r->frameBuffer.size = rect;
     return 0;
 }
 
@@ -337,23 +332,4 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
         // Get the color from the texture at the texel position
         return texture_read(texture, texel);
     }
-}
-
-// FUNCTIONS BELOW ARE NOT FROM SCRATCHPIXEL 
-// BUT WE PUT THEM HERE BECAUSE THEY'RE NOT PINGO EITHER
-// TODO: THIS IS RETURNING GARBAGE VALUES
-void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov) {
-    // Extract the relevant elements from the matrix
-    float w = m->elements[0];  // Element at (0, 0)
-    float h = m->elements[5];  // Element at (1, 1)
-    float a = m->elements[10]; // Element at (2, 2)
-    float b = m->elements[14]; // Element at (2, 3)
-
-    // Calculate the aspect ratio and field of view
-    *aspect = w / h;
-    *fov = 2.0 * atan(1.0 / h);
-
-    // Calculate the near and far planes
-    *far = b / (a + 1.0);
-    *near = b / (a - 1.0);
 }

@@ -1,10 +1,11 @@
 #pragma once
 
+#include "../math/vec4.h"
 #include "depth.h"
 #include "texture.h"
 #include "renderable.h"
 #include "pixel.h"
-#include "../math/vec4.h"
+#include "camera.h"
 
 typedef struct tag_Scene Scene;
 typedef struct tag_BackEnd BackEnd;
@@ -16,7 +17,7 @@ typedef enum {
 } RenderClearType;
 
 typedef struct tag_Renderer{
-    Vec4i camera;
+    Camera camera;
     Scene * scene;
 
     PingoDepth * z_buffer;
@@ -26,9 +27,6 @@ typedef struct tag_Renderer{
     int clear;
     Pixel clearColor;
     Texture background;
-
-    Mat4 camera_projection;
-    Mat4 camera_view;
 
     BackEnd * backEnd;
 
@@ -40,7 +38,7 @@ extern int rendererInit(Renderer *, Vec2i size, struct tag_BackEnd * backEnd);
 
 extern int rendererSetScene(Renderer *r, Scene *s);
 
-extern int rendererSetCamera(Renderer *r, Vec4i camera);
+extern int rendererSetCamera(Renderer *r, Vec2i camera);
 
 // SCRATCHPIXEL FUNCTIONS
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
