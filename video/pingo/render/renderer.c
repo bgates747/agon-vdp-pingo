@@ -97,13 +97,13 @@ int rendererRender(Renderer * r) {
 
     memset(r->z_buffer, 0, num_pixels * sizeof (PingoDepth));
 
-    // Pixel* framePixels = r->frameBuffer.pixels;
-    // if (r->clear == REND_CLEAR) {
-    //     memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
-    // } else if (r->clear == REND_BACKGROUND) {
-    //     Pixel* backgroundPixels = r->background.pixels;
-    //     memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
-    // }
+    Pixel* framePixels = r->frameBuffer.pixels;
+    if (r->clear == REND_CLEAR) {
+        memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
+    } else if (r->clear == REND_BACKGROUND) {
+        Pixel* backgroundPixels = r->background.pixels;
+        memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
+    }
 
     renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
 
