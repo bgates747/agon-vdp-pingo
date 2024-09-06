@@ -7,7 +7,7 @@
   * Provides a common interface to multiple graphical backends
   */
 
-typedef struct tag_Renderer Renderer;
+typedef struct Renderer Renderer;
 typedef struct tag_Pixel Pixel;
 typedef struct tag_PingoDepth PingoDepth;
 

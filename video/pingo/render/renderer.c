@@ -20,6 +20,40 @@
 extern void show_pixel(float x, float y, uint8_t a, uint8_t b, uint8_t g, uint8_t r);
 #endif
 
+
+int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
+    printf("Initalizing Renderer\n");
+    renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
+    renderingFunctions[RENDERABLE_SCENE] = & renderScene;
+    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
+
+    r->scene = 0;
+    r->backEnd = backEnd;
+
+    r->frameBuffer.size = size;
+    printf("Frame buffer initialized\n");
+
+    int zsize = sizeof(PingoDepth) * size.x * size.y;
+    r->z_buffer = (PingoDepth*) heap_caps_malloc(zsize, MALLOC_CAP_SPIRAM);
+    printf("Z buffer initialized\n");
+    printf("Renderer initialized\n");
+    return 0;
+}
+
+int rendererSetScene(Renderer * r, Scene * s) {
+    if (s == 0)
+        return 1; //nullptr scene
+
+    r->scene = s;
+    return 0;
+}
+
+int rendererSetCamera(Renderer * r, Vec2i rect) {
+    r->camera.rect = rect;
+    r->frameBuffer.size = rect;
+    return 0;
+}
+
 int renderFrame(Renderer * r, Renderable ren) {
     Texture * f = ren.impl;
     return rasterizer_draw_pixel_perfect((Vec2i) { 0, 0 }, r, f);
@@ -58,26 +92,22 @@ int renderScene(Mat4 transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
-    return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
-}
+int rendererRender(Renderer * r) {
+    int num_pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
 
-int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
-{
-    return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
-}
+    memset(r->z_buffer, 0, num_pixels * sizeof (PingoDepth));
 
-void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float illumination) {
-    // If backend specifies something..
-    if (r->backEnd->drawPixel != 0) {
-        // Draw using the backend
-        r->backEnd->drawPixel(f, pos, color, illumination);
-    }
-    else {
-        // By default call this
-        // texture_draw(f, pos, pixelMul(color,illumination));
-        texture_draw(f, pos, color);
-    }
+    // Pixel* framePixels = r->frameBuffer.pixels;
+    // if (r->clear == REND_CLEAR) {
+    //     memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
+    // } else if (r->clear == REND_BACKGROUND) {
+    //     Pixel* backgroundPixels = r->background.pixels;
+    //     memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
+    // }
+
+    renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
+
+    return 0;
 }
 
 int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
@@ -194,9 +224,8 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     return 0;
 };
 
-
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
-    
+
     float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
@@ -240,56 +269,26 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
     // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
 }
 
-int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
-    printf("Initalizing Renderer\n");
-    renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
-    renderingFunctions[RENDERABLE_SCENE] = & renderScene;
-    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
-
-    r->scene = 0;
-    r->backEnd = backEnd;
-
-    r->frameBuffer.size = size;
-    printf("Frame buffer initialized\n");
-
-    int zsize = sizeof(PingoDepth) * size.x * size.y;
-    r->z_buffer = (PingoDepth*) heap_caps_malloc(zsize, MALLOC_CAP_SPIRAM);
-    printf("Z buffer initialized\n");
-    printf("Renderer initialized\n");
-    return 0;
+float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
+    return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
 }
 
-int rendererRender(Renderer * r) {
-    int num_pixels = r->frameBuffer.size.x * r->frameBuffer.size.y;
-
-    memset(r->z_buffer, 0, num_pixels * sizeof (PingoDepth));
-
-    // Pixel* framePixels = r->frameBuffer.pixels;
-    // if (r->clear == REND_CLEAR) {
-    //     memset(framePixels, r->clearColor.c, num_pixels * sizeof(Pixel));
-    // } else if (r->clear == REND_BACKGROUND) {
-    //     Pixel* backgroundPixels = r->background.pixels;
-    //     memcpy(framePixels, backgroundPixels, num_pixels * sizeof(Pixel));
-    // }
-
-    renderScene(mat4Identity(), r, sceneAsRenderable(r->scene));
-
-    return 0;
+int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
+{
+    return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
 }
 
-
-int rendererSetScene(Renderer * r, Scene * s) {
-    if (s == 0)
-        return 1; //nullptr scene
-
-    r->scene = s;
-    return 0;
-}
-
-int rendererSetCamera(Renderer * r, Vec2i rect) {
-    r->camera.rect = rect;
-    r->frameBuffer.size = rect;
-    return 0;
+void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float illumination) {
+    // If backend specifies something..
+    if (r->backEnd->drawPixel != 0) {
+        // Draw using the backend
+        r->backEnd->drawPixel(f, pos, color, illumination);
+    }
+    else {
+        // By default call this
+        // texture_draw(f, pos, pixelMul(color,illumination));
+        texture_draw(f, pos, color);
+    }
 }
 
 // SCRATCHPIXEL FUNCTIONS
@@ -333,3 +332,5 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
         return texture_read(texture, texel);
     }
 }
+
+// NOT SCRATCHPIXEL BUT NOT PINGO EITHER

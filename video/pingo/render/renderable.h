@@ -2,7 +2,7 @@
 
 #include "../math/mat4.h"
 
-typedef struct tag_Renderer Renderer;
+typedef struct Renderer Renderer;
 
 typedef enum  {
     RENDERABLE_SCENE  =0,
