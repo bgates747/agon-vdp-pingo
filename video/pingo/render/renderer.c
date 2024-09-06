@@ -216,9 +216,8 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         tcc.x /= c.z;
         tcc.y /= c.z;
 
-        // Rasterize the triangle with the new scratchpixel logic
-        rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near, diffuseLight);
-
+        // Rasterize the triangle with the new scratchpixel / scanline logic
+        rasterize_scanline((Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near, diffuseLight);
     }
 
     return 0;
@@ -226,11 +225,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 
 float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
     return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
-}
-
-int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
-{
-    return (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
 }
 
 void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float illumination) {
@@ -289,102 +283,122 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 }
 
 // NOT SCRATCHPIXEL BUT NOT PINGO EITHER
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
+// Helper function to swap pointers for Vec3f*
+
+
+// Helper function to swap float values
+static inline void swap_float(float* a, float* b) {
+    float temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Interpolation function for x-coordinate along an edge
+static float interpolate_x(const Vec3f* v0, const Vec3f* v1, float y) {
+    if (v0->y == v1->y) return v0->x;  // Prevent division by zero for horizontal edges
+    return v0->x + (y - v0->y) * (v1->x - v0->x) / (v1->y - v0->y);
+}
+
+// Function to swap Vec3f pointers and Vec2f pointers together
+static inline void swap_with_uvs(Vec3f** v0, Vec3f** v1, Vec2f* uv0, Vec2f* uv1) {
+    const Vec3f* temp_v = *v0;
+    *v0 = *v1;
+    *v1 = temp_v;
+
+    Vec2f temp_uv = *uv0;
+    *uv0 = *uv1;
+    *uv1 = temp_uv;
+}
+
+// Function to sort vertices by y-coordinate and handle horizontal edges by x-coordinate, swapping UVs as needed
+static inline void sort_vertices_with_uvs(Vec3f** p0, Vec3f** p1, Vec3f** p2, Vec2f* uv0, Vec2f* uv1, Vec2f* uv2) {
+    // Sort by y-coordinate
+    if ((*p0)->y > (*p1)->y) swap_with_uvs(p0, p1, uv0, uv1);
+    if ((*p0)->y > (*p2)->y) swap_with_uvs(p0, p2, uv0, uv2);
+    if ((*p1)->y > (*p2)->y) swap_with_uvs(p1, p2, uv1, uv2);
+
+    // If p0 and p1 have the same y-coordinate, ensure p0 is to the left of p1
+    if ((*p0)->y == (*p1)->y && (*p0)->x > (*p1)->x) swap_with_uvs(p0, p1, uv0, uv1);
+
+    // If p1 and p2 have the same y-coordinate, ensure p1 is to the left of p2
+    if ((*p1)->y == (*p2)->y && (*p1)->x > (*p2)->x) swap_with_uvs(p1, p2, uv1, uv2);
+}
+
+// Updated rasterize_scanline function with UV sorting
+static inline void rasterize_scanline(Vec3f* p0, Vec3f* p1, Vec3f* p2, Vec2f* uv0, Vec2f* uv1, Vec2f* uv2, const Texture* texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
+    // Sort vertices by y-coordinate with consistency for x-coordinates and swap UVs as well
+    sort_vertices_with_uvs(&p0, &p1, &p2, uv0, uv1, uv2);
+
+    // Calculate the inverse area for barycentric interpolation
     float inv_area = 1.0f / edge(p0, p1, p2);
 
-    Vec3f pixel, sample;
-    Vec2f intersections[2];
-    int intersection_count;
+    // Rasterize the top half of the triangle (from p0 to p1)
+    for (int y = (int)ceilf(p0->y); y <= (int)floorf(p1->y); ++y) {
+        float xStart = interpolate_x(p0, p1, y);
+        float xEnd = interpolate_x(p0, p2, y);
+        if (xStart > xEnd) swap_float(&xStart, &xEnd);
 
-    // Iterate over scanlines within the bounding box
-    for (int scrY = y0; scrY <= y1; ++scrY) {
-        // Find the intersection points of the current scanline with the triangle edges
-        find_scanline_intersections(p0, p1, p2, scrY, intersections, &intersection_count);
+        for (int x = (int)ceilf(xStart); x <= (int)floorf(xEnd); ++x) {
+            Vec3f sample = { (float)x, (float)y, 0 };
 
-        // Continue only if exactly two intersection points are found
-        if (intersection_count != 2) continue;
-
-        // Sort the intersections by x-coordinate
-        int x_start = (int)MAX(x0, (int)intersections[0].x);
-        int x_end = (int)MIN(x1, (int)intersections[1].x);
-
-        // Iterate over pixels between the intersections on the current scanline
-        for (int scrX = x_start, index = scrY * scrSize.x + x_start; scrX <= x_end; ++scrX, ++index) {
-            sample.x = scrX;
-            sample.y = scrY;
-
-            // Barycentric coordinates for pixel coverage
+            // Barycentric weights for interpolation
             float w0 = edge(p1, p2, &sample) * inv_area;
             float w1 = edge(p2, p0, &sample) * inv_area;
             float w2 = edge(p0, p1, &sample) * inv_area;
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                // Perspective-correct depth interpolation
                 float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
-                if (inv_z < -near) {
-                    continue;
-                }
+                if (inv_z < -near) continue;
                 float z = 1.0f / inv_z;
 
-                if (depth_check(r->z_buffer, scrX + scrY * scrSize.x, -inv_z)) {
-                    continue;
-                }
+                if (depth_check(r->z_buffer, x + y * scrSize.x, -inv_z)) continue;
+                depth_write(r->z_buffer, x + y * scrSize.x, -inv_z);
 
-                depth_write(r->z_buffer, scrX + scrY * scrSize.x, -inv_z);
-
-                // Interpolate the texture coordinates
+                // Perspective-correct UV interpolation
                 Vec2f uv;
                 uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
                 uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
 
-                // Shade the pixel and update the color buffer
+                // Shade and draw the pixel
                 Pixel color = shade(texture, uv);
-
-                backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, y}, color, diffuseLight);
             }
         }
     }
-    // printf("minz: %f, maxz: %f, near %f\n", minz, maxz, near);
-}
 
-// iterative depth functions
-// Helper function to find intersection of a line segment with the screen bounds
-static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out) {
-    // Check if the edge is horizontal (skip as no intersection along the scanline)
-    if (v0->y == v1->y) return 0;
+    // Rasterize the bottom half of the triangle (from p1 to p2)
+    for (int y = (int)ceilf(p1->y); y <= (int)floorf(p2->y); ++y) {
+        float xStart = interpolate_x(p1, p2, y);
+        float xEnd = interpolate_x(p0, p2, y);
+        if (xStart > xEnd) swap_float(&xStart, &xEnd);
 
-    // Calculate intersection x-coordinate of the line segment with the horizontal line y
-    float t = (y - v0->y) / (v1->y - v0->y);
-    if (t < 0 || t > 1) return 0; // Intersection not within the segment
+        for (int x = (int)ceilf(xStart); x <= (int)floorf(xEnd); ++x) {
+            Vec3f sample = { (float)x, (float)y, 0 };
 
-    out->x = v0->x + t * (v1->x - v0->x);
-    out->y = y;
-    return 1; // Valid intersection found
-}
+            // Barycentric weights for interpolation
+            float w0 = edge(p1, p2, &sample) * inv_area;
+            float w1 = edge(p2, p0, &sample) * inv_area;
+            float w2 = edge(p0, p1, &sample) * inv_area;
 
-// Function to find scanline intersections for triangle edges
-static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const Vec3f* p2, int scanline_y, Vec2f* out_intersections, int* count) {
-    // Initialize intersection count
-    *count = 0;
-    
-    // Check intersection with the first edge (p0-p1)
-    if (clip_edge((float)scanline_y, p0, p1, &out_intersections[*count])) {
-        (*count)++;
-    }
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                // Perspective-correct depth interpolation
+                float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
+                if (inv_z < -near) continue;
+                float z = 1.0f / inv_z;
 
-    // Check intersection with the second edge (p1-p2)
-    if (clip_edge((float)scanline_y, p1, p2, &out_intersections[*count])) {
-        (*count)++;
-    }
+                if (depth_check(r->z_buffer, x + y * scrSize.x, -inv_z)) continue;
+                depth_write(r->z_buffer, x + y * scrSize.x, -inv_z);
 
-    // Check intersection with the third edge (p2-p0)
-    if (*count < 2 && clip_edge((float)scanline_y, p2, p0, &out_intersections[*count])) {
-        (*count)++;
-    }
+                // Perspective-correct UV interpolation
+                Vec2f uv;
+                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
+                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
 
-    // Sort intersections by x-coordinate if two valid intersections are found
-    if (*count == 2 && out_intersections[0].x > out_intersections[1].x) {
-        Vec2f temp = out_intersections[0];
-        out_intersections[0] = out_intersections[1];
-        out_intersections[1] = temp;
+                // Shade and draw the pixel
+                Pixel color = shade(texture, uv);
+                backendDrawPixel(r, &r->frameBuffer, (Vec2i){x, y}, color, diffuseLight);
+            }
+        }
     }
 }
