@@ -225,18 +225,30 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 };
 
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
-
     float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
-    pixel.y = y0;
+    Vec2f intersections[2];
+    int intersection_count;
 
-    for (int scrY = y0, row = y0 * scrSize.x; scrY <= y1; ++scrY, pixel.y += 1, row += scrSize.x) {
-        pixel.x = x0;
-        for (int scrX = x0, index = row + x0; scrX <= x1; ++scrX, pixel.x += 1, ++index) {
-            sample.x = pixel.x + 0.5f;
-            sample.y = pixel.y + 0.5f;
+    // Iterate over scanlines within the bounding box
+    for (int scrY = y0; scrY <= y1; ++scrY) {
+        // Find the intersection points of the current scanline with the triangle edges
+        find_scanline_intersections(p0, p1, p2, scrY, intersections, &intersection_count);
 
+        // Continue only if exactly two intersection points are found
+        if (intersection_count != 2) continue;
+
+        // Sort the intersections by x-coordinate
+        int x_start = (int)MAX(x0, (int)intersections[0].x);
+        int x_end = (int)MIN(x1, (int)intersections[1].x);
+
+        // Iterate over pixels between the intersections on the current scanline
+        for (int scrX = x_start, index = scrY * scrSize.x + x_start; scrX <= x_end; ++scrX, ++index) {
+            sample.x = scrX + 0.5f;
+            sample.y = scrY + 0.5f;
+
+            // Barycentric coordinates for pixel coverage
             float w0 = edge(p1, p2, &sample) * inv_area;
             float w1 = edge(p2, p0, &sample) * inv_area;
             float w2 = edge(p0, p1, &sample) * inv_area;
@@ -334,3 +346,45 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 }
 
 // NOT SCRATCHPIXEL BUT NOT PINGO EITHER
+// iterative depth functions
+// Helper function to find intersection of a line segment with the screen bounds
+static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out) {
+    // Check if the edge is horizontal (skip as no intersection along the scanline)
+    if (v0->y == v1->y) return 0;
+
+    // Calculate intersection x-coordinate of the line segment with the horizontal line y
+    float t = (y - v0->y) / (v1->y - v0->y);
+    if (t < 0 || t > 1) return 0; // Intersection not within the segment
+
+    out->x = v0->x + t * (v1->x - v0->x);
+    out->y = y;
+    return 1; // Valid intersection found
+}
+
+// Function to find scanline intersections for triangle edges
+static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const Vec3f* p2, int scanline_y, Vec2f* out_intersections, int* count) {
+    // Initialize intersection count
+    *count = 0;
+    
+    // Check intersection with the first edge (p0-p1)
+    if (clip_edge((float)scanline_y, p0, p1, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Check intersection with the second edge (p1-p2)
+    if (clip_edge((float)scanline_y, p1, p2, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Check intersection with the third edge (p2-p0)
+    if (*count < 2 && clip_edge((float)scanline_y, p2, p0, &out_intersections[*count])) {
+        (*count)++;
+    }
+
+    // Sort intersections by x-coordinate if two valid intersections are found
+    if (*count == 2 && out_intersections[0].x > out_intersections[1].x) {
+        Vec2f temp = out_intersections[0];
+        out_intersections[0] = out_intersections[1];
+        out_intersections[1] = temp;
+    }
+}
