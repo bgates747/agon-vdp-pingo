@@ -115,14 +115,19 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     const Vec2i scrSize = r->frameBuffer.size;
     Object * o = ren.impl;
     Vec2f * tex_coords = o->textCoord;
+    // printf("Texture coordinates: %p\n", tex_coords);
 
     // MODEL MATRIX
     Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
+    // printf("Model matrix\n");
 
     // CAMERA VIEW AND PROJECTION MATRICES
     Mat4 v = r->camera.view;
+    // printf("View matrix\n");
     Mat4 p = r->camera.projection;
+    // printf("Projection matrix\n");
     float near = r->camera.near;
+    // printf("Near: %f\n", near);
 
     // CAMERA NORMAL
     Vec3f cameraNormal = { 
@@ -131,19 +136,24 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         v.elements[10]  // forward.z
     };
     cameraNormal = vec3Normalize(cameraNormal);
+    // printf("Camera normal\n");
 
+    // printf("Preparing to render mesh %p\n", o->mesh);
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
         Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
         Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
+        // printf("Got vertices\n");
 
         Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
         Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
         Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
+        // printf("Converted vertices to vec4\n");
 
         a = mat4MultiplyVec4( &a, &m);
         b = mat4MultiplyVec4( &b, &m);
         c = mat4MultiplyVec4( &c, &m);
+        // printf("Transformed vertices\n");
 
         // // TODO: convert this to look up normals from the mesh
         // // FACE NORMAL
@@ -166,10 +176,12 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
         c = mat4MultiplyVec4( &c, &v);
+        // printf("Viewed vertices\n");
 
         a = mat4MultiplyVec4( &a, &p);
         b = mat4MultiplyVec4( &b, &p);
         c = mat4MultiplyVec4( &c, &p);
+        // printf("Projected vertices\n");
 
         // Don't render triangles completely behind the near clipping plane
         if (a.z > -near && b.z > -near && c.z > -near)
@@ -180,10 +192,12 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         persp_divide((Vec3f *)&a);
         persp_divide((Vec3f *)&b);
         persp_divide((Vec3f *)&c);
+        // printf("Perspective division\n");
 
         // TODO: review this logic as face normals may obviate the need for this
         // and indeed be the better option to control exactly what faces are rendered
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
+        // printf("Clocking: %f\n", clocking);
         if (clocking >= 0)
             continue;
 
@@ -191,30 +205,45 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         to_raster(scrSize, (Vec3f *)&a);
         to_raster(scrSize, (Vec3f *)&b);
         to_raster(scrSize, (Vec3f *)&c);
+        // printf("Converted to raster space\n");
 
         float bbox[4];
         tri_bbox((Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, bbox);
+        // printf("Got bounding box\n");
 
         // Bounding box constraint
         if (bbox[0] > scrSize.x - 1 || bbox[2] < 0 || bbox[1] > scrSize.y - 1 || bbox[3] < 0)
             continue;
+        // printf("Bounding box constraint\n");
 
         int x0 = MAX(0, (int)bbox[0]);
         int y0 = MAX(0, (int)bbox[1]);
         int x1 = MIN(scrSize.x - 1, (int)bbox[2]);
         int y1 = MIN(scrSize.y - 1, (int)bbox[3]);
+        // printf("Bounding box\n");
 
-        Vec2f tca = tex_coords[o->tex_indices[i + 0]];
-        Vec2f tcb = tex_coords[o->tex_indices[i + 1]];
-        Vec2f tcc = tex_coords[o->tex_indices[i + 2]];
+        Vec2f tca = {0, 0};
+        Vec2f tcb = {0, 0};
+        Vec2f tcc = {0, 0};
+        if (tex_coords) {
+            // printf("Trying to get texture coordinates\n");
+            tca = tex_coords[o->tex_indices[i + 0]];
+            tcb = tex_coords[o->tex_indices[i + 1]];
+            tcc = tex_coords[o->tex_indices[i + 2]];
+            // printf("Got texture coordinates\n");
 
-        // Perspective correct texture coordinates
-        tca.x /= a.z;
-        tca.y /= a.z;
-        tcb.x /= b.z;
-        tcb.y /= b.z;
-        tcc.x /= c.z;
-        tcc.y /= c.z;
+            // Perspective correct texture coordinates
+            tca.x /= a.z;
+            tca.y /= a.z;
+            tcb.x /= b.z;
+            tcb.y /= b.z;
+            tcc.x /= c.z;
+            tcc.y /= c.z;
+            // printf("Perspective correct texture coordinates\n");
+
+        } else {
+            // printf("No texture coordinates\n");
+        }
 
         // Rasterize the triangle with the new scratchpixel logic
         rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near, diffuseLight);
@@ -225,7 +254,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
 };
 
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
-
+    // printf("Rasterizing\n");
     float inv_area = 1.0f / edge(p0, p1, p2);
 
     Vec3f pixel, sample;
@@ -254,13 +283,16 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
 
                 depth_write(r->z_buffer, scrX + scrY * scrSize.x, -inv_z);
 
-                // Interpolate the texture coordinates
-                Vec2f uv;
-                uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
-                uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
+                Pixel color = {255};
+                if (texture) {
+                    // Interpolate the texture coordinates
+                    Vec2f uv;
+                    uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
+                    uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
 
-                // Shade the pixel and update the color buffer
-                Pixel color = shade(texture, uv);
+                    // Shade the pixel and update the color buffer
+                    color = shade(texture, uv);
+                }
 
                 backendDrawPixel(r, &r->frameBuffer, (Vec2i) { scrX, scrY }, color, diffuseLight);
             }

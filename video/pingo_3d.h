@@ -342,6 +342,14 @@ typedef struct tag_Pingo3dControl {
         //debug_log("Camera:\n");
         // m_camera.dump();
         m_renderer.camera.view = m_camera.m_transform;
+        // print camera translation values
+        // // Assuming m_camera.m_transform is a 4x4 matrix in row-major order
+        // float tx = m_camera.m_transform.elements[3];   // X translation
+        // float ty = m_camera.m_transform.elements[7];   // Y translation
+        // float tz = m_camera.m_transform.elements[11];  // Z translation
+
+        // // Print camera translation values
+        // printf("Camera translation from matrix: %f %f %f\n", tx, ty, tz);
 
         if (m_scene.m_modified) {
             m_scene.compute_transformation_matrix();
@@ -615,20 +623,24 @@ typedef struct tag_Pingo3dControl {
         auto object = get_object();
         auto mesh = get_mesh();
         auto bmid = m_proc->readWord_t();
-        if (object && mesh && bmid) {
-            debug_log("Creating 3D object %u with bitmap %u\n", object->m_oid, bmid);
+        // if (object && mesh && bmid) {
+        if (object && mesh) {
+            printf("Creating 3D object %u with bitmap %u\n", object->m_oid, bmid);
             auto stored_bitmap = getBitmap(bmid);
             if (stored_bitmap) {
                 auto bitmap = stored_bitmap.get();
                 if (bitmap) {
                     auto size = p3d::Vec2i{(int)bitmap->width, (int)bitmap->height};
                     auto pix = (p3d::Pixel*) bitmap->data;
-                    object->bind();
+                    // object->bind();
                     texture_init(&object->m_texture, size, pix);
-                    object->m_object.mesh = mesh;
+                    // object->m_object.mesh = mesh;
                     // debug_log("Texture data:  %02hX %02hX %02hX %02hX\n", pix->r, pix->g, pix->b, pix->a);
                 }
             }
+            object->bind();
+            object->m_object.mesh = mesh;
+            printf("Object %u created\n", object->m_oid);
         }
     }
 
