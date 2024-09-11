@@ -65,5 +65,5 @@ static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const 
 static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test);
 static Pixel shade(const Texture* texture, Vec2f uv);
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight);
-void mat4ExtractPerspective(const Mat4* m, float* near, float* far, float* aspect, float* fov);
-Pixel rgba2222_to_pixel(uint8_t data);
+static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out);
+static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const Vec3f* p2, int scanline_y, Vec2f* out_intersections, int* count);
