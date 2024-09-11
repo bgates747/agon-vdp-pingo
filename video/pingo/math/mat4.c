@@ -6,6 +6,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "esp_dsp.h"
+
 Mat4 mat4Identity() {
     return (Mat4){{
             1,  0,  0, 0,
@@ -91,6 +93,18 @@ Vec4f mat4MultiplyVec4(Vec4f *v, Mat4 *t) {
     return (Vec4f){a,b,c,d};
 }
 
+// Vec4f mat4MultiplyVec4(Vec4f *v, Mat4 *t) {
+//     // Create a 4-element vector to represent the Vec4f
+//     float vec4[4] = {v->x, v->y, v->z, v->w};
+//     float result[4]; // Output vector
+
+//     // Perform 4x4 matrix multiplication with a 4x1 vector using ESP-DSP function
+//     dspm_mult_4x4x1_f32(t->elements, vec4, result);
+
+//     // Return the result as a 4D vector
+//     return (Vec4f){result[0], result[1], result[2], result[3]};
+// }
+
 Vec4f mat4MultiplyVec4in( Vec4f *v, Mat4 *t ) {
     float a = v->x * t->elements[0] + v->y * t->elements[4] + v->z * t->elements[8] + 1.0 * t->elements[12];
     float b = v->x * t->elements[1] + v->y * t->elements[5] + v->z * t->elements[9] + 1.0 * t->elements[13];
@@ -126,6 +140,14 @@ Mat4 mat4MultiplyM( Mat4 * m1, Mat4 * m2) {
 
     return out;
 }
+
+// Mat4 mat4MultiplyM(Mat4 *m1, Mat4 *m2) {
+//     Mat4 out;
+    
+//     dspm_mult_4x4x4_f32(m2->elements, m1->elements, out.elements);
+    
+//     return out;
+// }
 
 float mat4Determinant(Mat4 * mat)
 {
