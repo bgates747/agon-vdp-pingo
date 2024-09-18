@@ -12,10 +12,15 @@
 #include "object.h"
 #include <esp_heap_caps.h>
 
+#ifndef MIN
 #define MIN(a, b)(((a) < (b)) ? (a) : (b))
+#endif
+#ifndef MAX
 #define MAX(a, b)(((a) > (b)) ? (a) : (b))
+#endif
+#ifndef Z_THRESHOLD
 #define Z_THRESHOLD 0.000001f
-
+#endif
 #if DEBUG
 extern void show_pixel(float x, float y, uint8_t a, uint8_t b, uint8_t g, uint8_t r);
 #endif
@@ -25,7 +30,8 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     printf("Initalizing Renderer\n");
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
     renderingFunctions[RENDERABLE_SCENE] = & renderScene;
-    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
+    // renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
+    renderingFunctions[RENDERABLE_OBJECT] = & renderObjectHecker;
 
     r->scene = 0;
     r->backEnd = backEnd;
@@ -417,4 +423,78 @@ static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const 
         out_intersections[0] = out_intersections[1];
         out_intersections[1] = temp;
     }
+}
+
+int renderObjectHecker(Mat4 object_transform, Renderer *r, Renderable ren) {
+    const Vec2i scrSize = r->frameBuffer.size;
+    Object *o = ren.impl;
+    Vec2f *tex_coords = o->textCoord;
+
+    // MODEL MATRIX
+    Mat4 m = mat4MultiplyM(&o->transform, &object_transform);
+
+    // CAMERA VIEW AND PROJECTION MATRICES
+    Mat4 v = r->camera.view;
+    Mat4 p = r->camera.projection;
+    float near = r->camera.near;
+
+    // CAMERA NORMAL
+    Vec3f cameraNormal = {
+        v.elements[2],  // forward.x
+        v.elements[6],  // forward.y
+        v.elements[10]  // forward.z
+    };
+    cameraNormal = vec3Normalize(cameraNormal);
+
+    for (int i = 0; i < o->mesh->indexes_count; i += 3) {
+        Vec3f *ver1 = &o->mesh->positions[o->mesh->pos_indices[i + 0]];
+        Vec3f *ver2 = &o->mesh->positions[o->mesh->pos_indices[i + 1]];
+        Vec3f *ver3 = &o->mesh->positions[o->mesh->pos_indices[i + 2]];
+
+        Vec4f a = {ver1->x, ver1->y, ver1->z, 1};
+        Vec4f b = {ver2->x, ver2->y, ver2->z, 1};
+        Vec4f c = {ver3->x, ver3->y, ver3->z, 1};
+
+        // Apply object-to-world transformation
+        a = mat4MultiplyVec4(&a, &m);
+        b = mat4MultiplyVec4(&b, &m);
+        c = mat4MultiplyVec4(&c, &m);
+
+        // Apply camera view transformation
+        a = mat4MultiplyVec4(&a, &v);
+        b = mat4MultiplyVec4(&b, &v);
+        c = mat4MultiplyVec4(&c, &v);
+
+        // Apply projection transformation
+        a = mat4MultiplyVec4(&a, &p);
+        b = mat4MultiplyVec4(&b, &p);
+        c = mat4MultiplyVec4(&c, &p);
+
+        // Don't render triangles behind the near clipping plane
+        if (a.z > -near && b.z > -near && c.z > -near)
+            continue;
+
+        // Cull triangles that are not front-facing
+        float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
+        if (clocking >= 0)
+            continue;
+
+        // Load up texture coordinates
+        Vec2f tca = {0, 0}, tcb = {0, 0}, tcc = {0, 0};
+        if (tex_coords) {
+            tca = tex_coords[o->tex_indices[i + 0]];
+            tcb = tex_coords[o->tex_indices[i + 1]];
+            tcc = tex_coords[o->tex_indices[i + 2]];
+        }
+
+        // Prepare vertices for triangle rasterization
+        Vertex vertexA = {(Vec3f){a.x, a.y, a.z}, tca};
+        Vertex vertexB = {(Vec3f){b.x, b.y, b.z}, tcb};
+        Vertex vertexC = {(Vec3f){c.x, c.y, c.z}, tcc};
+
+        // Call the new triangle rasterization function
+        TextureMapTriangle(&r->frameBuffer, (const Vertex[]){vertexA, vertexB, vertexC}, o->material->texture);
+    }
+
+    return 0;
 }

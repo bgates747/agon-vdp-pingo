@@ -6,6 +6,7 @@
 #include "renderable.h"
 #include "pixel.h"
 #include "camera.h"
+#include "hecker.h"
 
 typedef struct tag_Scene Scene;
 typedef struct tag_BackEnd BackEnd;
@@ -49,6 +50,8 @@ void renderRenderable(Mat4 transform, Renderer *r, Renderable ren);
 int renderScene(Mat4 transform, Renderer *r, Renderable ren);
 
 int renderObject(Mat4 object_transform, Renderer *r, Renderable ren);
+
+int renderObjectHecker(Mat4 object_transform, Renderer *r, Renderable ren);
 
 float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3);
 
