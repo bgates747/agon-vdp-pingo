@@ -30,8 +30,8 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     printf("Initalizing Renderer\n");
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
     renderingFunctions[RENDERABLE_SCENE] = & renderScene;
-    // renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
-    renderingFunctions[RENDERABLE_OBJECT] = & renderObjectHecker;
+    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
+    // renderingFunctions[RENDERABLE_OBJECT] = & renderObjectHecker;
 
     r->scene = 0;
     r->backEnd = backEnd;
@@ -116,148 +116,106 @@ int rendererRender(Renderer * r) {
     return 0;
 }
 
-int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
+int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
 
-    const Vec2i scrSize = r->frameBuffer.size;
-    Object * o = ren.impl;
-    Vec2f * tex_coords = o->textCoord;
-    // printf("Texture coordinates: %p\n", tex_coords);
+    const Vec2i screenSize = r->frameBuffer.size;
+    Object *object = ren.impl;
+    Vec2f *textureCoords = object->textCoord;
 
-    // MODEL MATRIX
-    Mat4 m = mat4MultiplyM( &o->transform, &object_transform  );
-    // printf("Model matrix\n");
+    // MODEL TRANSFORMATION: Apply object transform to local object matrix
+    Mat4 mtxMdl = mat4MultiplyM(&object->transform, &object_transform);
 
-    // CAMERA VIEW AND PROJECTION MATRICES
-    Mat4 v = r->camera.view;
-    // printf("View matrix\n");
-    Mat4 p = r->camera.projection;
-    // printf("Projection matrix\n");
-    float near = r->camera.near;
-    // printf("Near: %f\n", near);
+    // CAMERA VIEW AND PROJECTION: Fetch camera view and projection matrices
+    Mat4 mtxVw = r->camera.view;
+    Mat4 mtxProj = r->camera.projection;
+    float nearPlane = r->camera.near;
 
-    // CAMERA NORMAL
-    Vec3f cameraNormal = { 
-        v.elements[2],  // forward.x
-        v.elements[6],  // forward.y
-        v.elements[10]  // forward.z
-    };
-    cameraNormal = vec3Normalize(cameraNormal);
-    // printf("Camera normal\n");
+    // PROCESS EACH TRIANGLE: Loop through all triangles in the object mesh
+    for (int i = 0; i < object->mesh->indexes_count; i += 3) {
+        Vec3f *v1 = &object->mesh->positions[object->mesh->pos_indices[i+0]];
+        Vec3f *v2 = &object->mesh->positions[object->mesh->pos_indices[i+1]];
+        Vec3f *v3 = &object->mesh->positions[object->mesh->pos_indices[i+2]];
 
-    // printf("Preparing to render mesh %p\n", o->mesh);
-    for (int i = 0; i < o->mesh->indexes_count; i += 3) {
-        Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
-        Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
-        Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
-        // printf("Got vertices\n");
+        // CONVERT TO HOMOGENEOUS SPACE: Convert vertices to Vec4f
+        Vec4f ver1 = {v1->x, v1->y, v1->z, 1};
+        Vec4f ver2 = {v2->x, v2->y, v2->z, 1};
+        Vec4f ver3 = {v3->x, v3->y, v3->z, 1};
 
-        Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
-        Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
-        Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
-        // printf("Converted vertices to vec4\n");
+        // APPLY MODEL MATRIX: Apply object transformation to vertices
+        ver1 = mat4MultiplyVec4(&ver1, &mtxMdl);
+        ver2 = mat4MultiplyVec4(&ver2, &mtxMdl);
+        ver3 = mat4MultiplyVec4(&ver3, &mtxMdl);
 
-        a = mat4MultiplyVec4( &a, &m);
-        b = mat4MultiplyVec4( &b, &m);
-        c = mat4MultiplyVec4( &c, &m);
-        // printf("Transformed vertices\n");
+        // APPLY VIEW MATRIX: Transform vertices to camera view space
+        ver1 = mat4MultiplyVec4(&ver1, &mtxVw);
+        ver2 = mat4MultiplyVec4(&ver2, &mtxVw);
+        ver3 = mat4MultiplyVec4(&ver3, &mtxVw);
 
-        // // TODO: convert this to look up normals from the mesh
-        // // FACE NORMAL
-        // Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        // Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        // Vec3f faceNormal = vec3Normalize(vec3Cross(na, nb));
+        // APPLY PROJECTION MATRIX: Project vertices to normalized device coordinates (NDC)
+        ver1 = mat4MultiplyVec4(&ver1, &mtxProj);
+        ver2 = mat4MultiplyVec4(&ver2, &mtxProj);
+        ver3 = mat4MultiplyVec4(&ver3, &mtxProj);
 
-        // // Cull triangles facing away from camera
-        // float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
-        // if (faceCamDot < 0)
-        //     continue;
-
-        float diffuseLight = 1.0; // default to full illumination from all directions
-        // if (true) { // set to true for lighting effects at the expense of performance
-        //     Vec3f light = vec3Normalize((Vec3f){-3,8,5});
-        //     diffuseLight = (1.0 + vec3Dot(faceNormal, light)) *0.5;
-        //     diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
-        // }
-
-        a = mat4MultiplyVec4( &a, &v);
-        b = mat4MultiplyVec4( &b, &v);
-        c = mat4MultiplyVec4( &c, &v);
-        // printf("Viewed vertices\n");
-
-        a = mat4MultiplyVec4( &a, &p);
-        b = mat4MultiplyVec4( &b, &p);
-        c = mat4MultiplyVec4( &c, &p);
-        // printf("Projected vertices\n");
-
-        // Don't render triangles completely behind the near clipping plane
-        if (a.z > -near && b.z > -near && c.z > -near)
+        // CLIP TRIANGLES BEHIND CAMERA: Skip triangles behind the near plane
+        if (ver1.z > -nearPlane && ver2.z > -nearPlane && ver3.z > -nearPlane)
             continue;
 
-        // CORRECTED WITH SCRATCHPIXEL: 
-        // convert to device coordinates by perspective division
-        persp_divide((Vec3f *)&a);
-        persp_divide((Vec3f *)&b);
-        persp_divide((Vec3f *)&c);
-        // printf("Perspective division\n");
+        // PERSPECTIVE DIVIDE: Convert to 3D by dividing by the homogeneous coordinate (w)
+        persp_divide((Vec3f *)&ver1);
+        persp_divide((Vec3f *)&ver2);
+        persp_divide((Vec3f *)&ver3);
 
-        // TODO: review this logic as face normals may obviate the need for this
-        // and indeed be the better option to control exactly what faces are rendered
-        float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
-        // printf("Clocking: %f\n", clocking);
-        if (clocking >= 0)
+        // BACKFACE CULLING: Check if the triangle is clockwise in view space
+        if ((ver2.y - ver1.y) * (ver3.x - ver2.x) - (ver3.y - ver2.y) * (ver2.x - ver1.x) >= 0)
+            continue; 
+
+        // RASTER SPACE CONVERSION: Convert NDC coordinates to screen space (pixels)
+        to_raster(screenSize, (Vec3f *)&ver1);
+        to_raster(screenSize, (Vec3f *)&ver2);
+        to_raster(screenSize, (Vec3f *)&ver3);
+
+        // TRIANGLE BOUNDING BOX: Compute the triangle's bounding box in screen space
+        float bbx[4];
+        tri_bbox((Vec3f *)&ver1, (Vec3f *)&ver2, (Vec3f *)&ver3, bbx);
+
+        // BOUNDING BOX CONSTRAINTS: Skip if the triangle is completely outside the screen
+        if (bbx[0] > screenSize.x - 1 || bbx[2] < 0 || bbx[1] > screenSize.y - 1 || bbx[3] < 0)
             continue;
 
-        // Convert to raster space
-        to_raster(scrSize, (Vec3f *)&a);
-        to_raster(scrSize, (Vec3f *)&b);
-        to_raster(scrSize, (Vec3f *)&c);
-        // printf("Converted to raster space\n");
+        int xMin = MAX(0, (int)bbx[0]);
+        int yMin = MAX(0, (int)bbx[1]);
+        int xMax = MIN(screenSize.x - 1, (int)bbx[2]);
+        int yMax = MIN(screenSize.y - 1, (int)bbx[3]);
 
-        float bbox[4];
-        tri_bbox((Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, bbox);
-        // printf("Got bounding box\n");
+        // TEXTURE COORDINATES: Fetch and correct texture coordinates if available
+        Vec2f textureCoord1 = {0, 0};
+        Vec2f textureCoord2 = {0, 0};
+        Vec2f textureCoord3 = {0, 0};
+        if (textureCoords) {
+            textureCoord1 = textureCoords[object->tex_indices[i + 0]];
+            textureCoord2 = textureCoords[object->tex_indices[i + 1]];
+            textureCoord3 = textureCoords[object->tex_indices[i + 2]];
 
-        // Bounding box constraint
-        if (bbox[0] > scrSize.x - 1 || bbox[2] < 0 || bbox[1] > scrSize.y - 1 || bbox[3] < 0)
-            continue;
-        // printf("Bounding box constraint\n");
-
-        int x0 = MAX(0, (int)bbox[0]);
-        int y0 = MAX(0, (int)bbox[1]);
-        int x1 = MIN(scrSize.x - 1, (int)bbox[2]);
-        int y1 = MIN(scrSize.y - 1, (int)bbox[3]);
-        // printf("Bounding box\n");
-
-        Vec2f tca = {0, 0};
-        Vec2f tcb = {0, 0};
-        Vec2f tcc = {0, 0};
-        if (tex_coords) {
-            // printf("Trying to get texture coordinates\n");
-            tca = tex_coords[o->tex_indices[i + 0]];
-            tcb = tex_coords[o->tex_indices[i + 1]];
-            tcc = tex_coords[o->tex_indices[i + 2]];
-            // printf("Got texture coordinates\n");
-
-            // Perspective correct texture coordinates
-            tca.x /= a.z;
-            tca.y /= a.z;
-            tcb.x /= b.z;
-            tcb.y /= b.z;
-            tcc.x /= c.z;
-            tcc.y /= c.z;
-            // printf("Perspective correct texture coordinates\n");
-
-        } else {
-            // printf("No texture coordinates\n");
+            // PERSPECTIVE CORRECT TEXTURE COORDINATES: Adjust texture coordinates by depth
+            textureCoord1.x /= ver1.z;
+            textureCoord1.y /= ver1.z;
+            textureCoord2.x /= ver2.z;
+            textureCoord2.y /= ver2.z;
+            textureCoord3.x /= ver3.z;
+            textureCoord3.y /= ver3.z;
         }
 
-        // Rasterize the triangle with the new scratchpixel logic
-        rasterize(x0, y0, x1, y1, (Vec3f *)&a, (Vec3f *)&b, (Vec3f *)&c, &tca, &tcb, &tcc, o->material->texture, scrSize, r, near, diffuseLight);
-
+        // RASTERIZATION: Render the triangle with texture and lighting applied
+        rasterize(xMin, yMin, xMax, yMax, 
+                  (Vec3f *)&ver1, 
+                  (Vec3f *)&ver2, 
+                  (Vec3f *)&ver3, 
+                  &textureCoord1, &textureCoord2, &textureCoord3, 
+                  object->material->texture, screenSize, r, nearPlane, 1.0);
     }
 
     return 0;
-};
+}
 
 static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
     float inv_area = 1.0f / edge(p0, p1, p2);
@@ -316,10 +274,6 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
             }
         }
     }
-}
-
-float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3) {
-    return (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
 }
 
 int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
