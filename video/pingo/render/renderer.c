@@ -30,8 +30,8 @@ int rendererInit(Renderer * r, Vec2i size, BackEnd * backEnd) {
     printf("Initalizing Renderer\n");
     renderingFunctions[RENDERABLE_SPRITE] = & renderSprite;
     renderingFunctions[RENDERABLE_SCENE] = & renderScene;
-    // renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
-    renderingFunctions[RENDERABLE_OBJECT] = & renderObjectHecker;
+    renderingFunctions[RENDERABLE_OBJECT] = & renderObject;
+    // renderingFunctions[RENDERABLE_OBJECT] = & renderObjectHecker;
 
     r->scene = 0;
     r->backEnd = backEnd;
@@ -278,11 +278,14 @@ static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const 
     }
 }
 
-
 int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
     const Vec2i screenSize = r->frameBuffer.size;
     Object *object = ren.impl;
-    Vec2f *textureCoords = object->textCoord;
+    
+    // Fetch mesh and vertex data
+    Mesh *mesh = object->mesh;
+    Vertex *vertices = mesh->vertices;
+    int idx_count = mesh->indexes_count;
 
     // Precompute model-view-projection matrix once
     Mat4 mtxMdl = mat4MultiplyM(&object->transform, &object_transform);
@@ -290,20 +293,20 @@ int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
     Mat4 mtxMdlVwProj = mat4MultiplyM(&mtxMdlVw, &r->camera.projection);
     float nearPlane = r->camera.near;
 
-    Vec3f *positions = object->mesh->positions;
-    uint16_t *pos_indices = object->mesh->pos_indices; // Fix: Change to uint16_t
-    uint16_t *tex_indices = object->tex_indices; // Fix: Change to uint16_t
-    int idx_count = object->mesh->indexes_count;
+    // Use a pointer to iterate over the vertices array
+    Vertex *v_ptr = vertices;  // Start pointer at the first vertex
 
     // Process each triangle
     for (int i = 0; i < idx_count; i += 3) {
-        Vec3f v1 = positions[pos_indices[i + 0]];
-        Vec3f v2 = positions[pos_indices[i + 1]];
-        Vec3f v3 = positions[pos_indices[i + 2]];
+        // Access the vertices directly via the pointer
+        Vertex *v1 = v_ptr++;
+        Vertex *v2 = v_ptr++;
+        Vertex *v3 = v_ptr++;
 
-        Vec4f ver1 = {v1.x, v1.y, v1.z, 1};
-        Vec4f ver2 = {v2.x, v2.y, v2.z, 1};
-        Vec4f ver3 = {v3.x, v3.y, v3.z, 1};
+        // Convert positions to Vec4f and apply transformation
+        Vec4f ver1 = {v1->position.x, v1->position.y, v1->position.z, 1};
+        Vec4f ver2 = {v2->position.x, v2->position.y, v2->position.z, 1};
+        Vec4f ver3 = {v3->position.x, v3->position.y, v3->position.z, 1};
 
         ver1 = mat4MultiplyVec4(&ver1, &mtxMdlVwProj);
         ver2 = mat4MultiplyVec4(&ver2, &mtxMdlVwProj);
@@ -341,109 +344,17 @@ int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
         int yMax = MIN(screenSize.y - 1, (int)bbx[3]);
 
         // Texture coordinates processing
-        Vec2f textureCoord1 = {0, 0}, textureCoord2 = {0, 0}, textureCoord3 = {0, 0};
-        if (textureCoords) {
-            textureCoord1 = textureCoords[tex_indices[i + 0]];
-            textureCoord2 = textureCoords[tex_indices[i + 1]];
-            textureCoord3 = textureCoords[tex_indices[i + 2]];
+        Vec2f textureCoord1 = v1->uv;
+        Vec2f textureCoord2 = v2->uv;
+        Vec2f textureCoord3 = v3->uv;
 
-            // Perspective correct
-            textureCoord1.x /= ver1.z;
-            textureCoord1.y /= ver1.z;
-            textureCoord2.x /= ver2.z;
-            textureCoord2.y /= ver2.z;
-            textureCoord3.x /= ver3.z;
-            textureCoord3.y /= ver3.z;
-        }
-
-        // Rasterize the triangle
-        rasterize(xMin, yMin, xMax, yMax, 
-                  (Vec3f *)&ver1, 
-                  (Vec3f *)&ver2, 
-                  (Vec3f *)&ver3, 
-                  &textureCoord1, &textureCoord2, &textureCoord3, 
-                  object->material->texture, screenSize, r, nearPlane, 1.0);
-    }
-
-    return 0;
-}
-
-int renderObjectHecker(Mat4 object_transform, Renderer *r, Renderable ren) {
-    const Vec2i screenSize = r->frameBuffer.size;
-    Object *object = ren.impl;
-    Vec2f *textureCoords = object->textCoord;
-
-    // Precompute model-view-projection matrix once
-    Mat4 mtxMdl = mat4MultiplyM(&object->transform, &object_transform);
-    Mat4 mtxMdlVw = mat4MultiplyM(&mtxMdl, &r->camera.view);
-    Mat4 mtxMdlVwProj = mat4MultiplyM(&mtxMdlVw, &r->camera.projection);
-    float nearPlane = r->camera.near;
-
-    Vec3f *positions = object->mesh->positions;
-    uint16_t *pos_indices = object->mesh->pos_indices; // Fix: Change to uint16_t
-    uint16_t *tex_indices = object->tex_indices; // Fix: Change to uint16_t
-    int idx_count = object->mesh->indexes_count;
-
-    // Process each triangle
-    for (int i = 0; i < idx_count; i += 3) {
-        Vec3f v1 = positions[pos_indices[i + 0]];
-        Vec3f v2 = positions[pos_indices[i + 1]];
-        Vec3f v3 = positions[pos_indices[i + 2]];
-
-        Vec4f ver1 = {v1.x, v1.y, v1.z, 1};
-        Vec4f ver2 = {v2.x, v2.y, v2.z, 1};
-        Vec4f ver3 = {v3.x, v3.y, v3.z, 1};
-
-        ver1 = mat4MultiplyVec4(&ver1, &mtxMdlVwProj);
-        ver2 = mat4MultiplyVec4(&ver2, &mtxMdlVwProj);
-        ver3 = mat4MultiplyVec4(&ver3, &mtxMdlVwProj);
-
-        // Early culling if behind near plane
-        if (ver1.z > -nearPlane && ver2.z > -nearPlane && ver3.z > -nearPlane)
-            continue;
-
-        // Perspective divide
-        persp_divide((Vec3f *)&ver1);
-        persp_divide((Vec3f *)&ver2);
-        persp_divide((Vec3f *)&ver3);
-
-        // Backface culling
-        if ((ver2.y - ver1.y) * (ver3.x - ver2.x) - (ver3.y - ver2.y) * (ver2.x - ver1.x) >= 0)
-            continue;
-
-        // Convert to raster space
-        to_raster(screenSize, (Vec3f *)&ver1);
-        to_raster(screenSize, (Vec3f *)&ver2);
-        to_raster(screenSize, (Vec3f *)&ver3);
-
-        // Compute bounding box
-        float bbx[4];
-        tri_bbox((Vec3f *)&ver1, (Vec3f *)&ver2, (Vec3f *)&ver3, bbx);
-
-        // Bounding box constraints
-        if (bbx[0] > screenSize.x - 1 || bbx[2] < 0 || bbx[1] > screenSize.y - 1 || bbx[3] < 0)
-            continue;
-
-        int xMin = MAX(0, (int)bbx[0]);
-        int yMin = MAX(0, (int)bbx[1]);
-        int xMax = MIN(screenSize.x - 1, (int)bbx[2]);
-        int yMax = MIN(screenSize.y - 1, (int)bbx[3]);
-
-        // Texture coordinates processing
-        Vec2f textureCoord1 = {0, 0}, textureCoord2 = {0, 0}, textureCoord3 = {0, 0};
-        if (textureCoords) {
-            textureCoord1 = textureCoords[tex_indices[i + 0]];
-            textureCoord2 = textureCoords[tex_indices[i + 1]];
-            textureCoord3 = textureCoords[tex_indices[i + 2]];
-
-            // Perspective correct
-            textureCoord1.x /= ver1.z;
-            textureCoord1.y /= ver1.z;
-            textureCoord2.x /= ver2.z;
-            textureCoord2.y /= ver2.z;
-            textureCoord3.x /= ver3.z;
-            textureCoord3.y /= ver3.z;
-        }
+        // Perspective correct
+        textureCoord1.x /= ver1.z;
+        textureCoord1.y /= ver1.z;
+        textureCoord2.x /= ver2.z;
+        textureCoord2.y /= ver2.z;
+        textureCoord3.x /= ver3.z;
+        textureCoord3.y /= ver3.z;
 
         // Rasterize the triangle
         rasterize(xMin, yMin, xMax, yMax, 

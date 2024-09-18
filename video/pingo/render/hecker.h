@@ -30,12 +30,6 @@ typedef struct {
     float VOverZ, VOverZStep;     // v/z and step
 } Edge;
 
-typedef struct {
-    Vec3f position;  // Vertex position (x, y, z)
-    Vec2f uv;        // UV coordinates (x=u, y=v)
-    Vec3f normal;    // Normal vector (x, y, z)
-} Vertex;
-
 // Function prototypes
 void InitializeGradients(Gradients *gradients, const Vertex *pVertices);
 void InitializeEdge(Edge *edge, const Gradients *gradients, const Vertex *pVertices, int Top, int Bottom);

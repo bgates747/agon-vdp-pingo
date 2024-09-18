@@ -53,8 +53,6 @@ int renderObject(Mat4 object_transform, Renderer *r, Renderable ren);
 
 int renderObjectHecker(Mat4 object_transform, Renderer *r, Renderable ren);
 
-float isClockWise(float x1, float y1, float x2, float y2, float x3, float y3);
-
 int orient2d( Vec2i a,  Vec2i b,  Vec2i c);
 
 void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float illumination);

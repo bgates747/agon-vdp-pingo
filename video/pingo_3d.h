@@ -247,6 +247,47 @@ typedef struct tag_Pingo3dControl {
     std::map<uint16_t, TexObject>* m_objects;   // Map of textured objects that use meshes and have transforms
     uint8_t             m_dither_type;      // Dithering type and options to be applied to rendered bitmap
 
+    typedef struct m_tempmesh {
+        int indexes_count;
+        uint16_t * pos_indices;
+        p3d::Vec3f * positions;
+        uint16_t * tex_indices;
+        p3d::Vec2f * textCoord;
+    } TempMesh;
+
+
+    TempMesh* m_tempmesh = NULL;
+
+    // Function to allocate temporary mesh structure
+    void allocate_tempmesh(uint32_t vertex_count, uint32_t index_count, uint32_t uv_count) {
+        if (!m_tempmesh) {
+            m_tempmesh = (TempMesh*)heap_caps_malloc(sizeof(TempMesh), MALLOC_CAP_SPIRAM);
+            memset(m_tempmesh, 0, sizeof(TempMesh));
+        }
+
+        // Allocate memory for vertices, texture coordinates, and indices if needed
+        if (vertex_count > 0) {
+            m_tempmesh->positions = (p3d::Vec3f*)heap_caps_malloc(vertex_count * sizeof(p3d::Vec3f), MALLOC_CAP_SPIRAM);
+        }
+        if (index_count > 0) {
+            m_tempmesh->pos_indices = (uint16_t*)heap_caps_malloc(index_count * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+        }
+        if (uv_count > 0) {
+            m_tempmesh->textCoord = (p3d::Vec2f*)heap_caps_malloc(uv_count * sizeof(p3d::Vec2f), MALLOC_CAP_SPIRAM);
+        }
+    }
+
+    // Function to deallocate the temporary mesh
+    void deallocate_tempmesh() {
+        if (m_tempmesh) {
+            if (m_tempmesh->positions) heap_caps_free(m_tempmesh->positions);
+            if (m_tempmesh->pos_indices) heap_caps_free(m_tempmesh->pos_indices);
+            if (m_tempmesh->textCoord) heap_caps_free(m_tempmesh->textCoord);
+            heap_caps_free(m_tempmesh);
+            m_tempmesh = NULL;
+        }
+    }
+
     void show_free_ram() {
         debug_log("Free PSRAM: %u\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     }
@@ -497,17 +538,12 @@ typedef struct tag_Pingo3dControl {
     // VDU 23, 0, &A0, sid; &49, 1, mid; n; x0; y0; z0; ... :  Define Mesh Vertices
     void define_mesh_vertices() {
         auto mesh = get_mesh();
-        if (mesh->positions) {
-            heap_caps_free(mesh->positions);
-            mesh->positions = NULL;
-        }
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            auto size = n*sizeof(p3d::Vec3f);
-            mesh->positions = (p3d::Vec3f*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto pos = mesh->positions;
+            allocate_tempmesh(n, 0, 0); // Allocate space for positions only
+            auto pos = m_tempmesh->positions;
             if (!pos) {
-                debug_log("define_mesh_vertices: failed to allocate %u bytes\n", size);
+                debug_log("define_mesh_vertices: failed to allocate memory\n");
                 show_free_ram();
             }
             debug_log("Reading %u vertices\n", n);
@@ -515,134 +551,141 @@ typedef struct tag_Pingo3dControl {
                 uint16_t x = m_proc->readWord_t();
                 uint16_t y = m_proc->readWord_t();
                 uint16_t z = m_proc->readWord_t();
-                if (pos) {
-                    pos->x = convert_position_value(x);
-                    pos->y = convert_position_value(y);
-                    pos->z = convert_position_value(z);
-                    if (!(i & 0x1F)) debug_log("%u %f %f %f\n", i, pos->x, pos->y, pos->z);
-                    pos++;
-                }
+                pos->x = convert_position_value(x);
+                pos->y = convert_position_value(y);
+                pos->z = convert_position_value(z);
+                pos++;
             }
-            debug_log("\n");
         }
     }
 
     // VDU 23, 0, &A0, sid; &49, 2, mid; n; i0; ... :  Set Mesh Vertex Indexes
     void set_mesh_vertex_indexes() {
         auto mesh = get_mesh();
-        if (mesh->pos_indices) {
-            heap_caps_free(mesh->pos_indices);
-            mesh->pos_indices = NULL;
-            mesh->indexes_count = 0;
-        }
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            mesh->indexes_count = n;
-            auto size = n*sizeof(uint16_t);
-            mesh->pos_indices = (uint16_t*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto idx = mesh->pos_indices;
+            allocate_tempmesh(0, n, 0); // Allocate space for indices only
+            auto idx = m_tempmesh->pos_indices;
             if (!idx) {
-                debug_log("set_mesh_vertex_indexes: failed to allocate %u bytes\n", size);
+                debug_log("set_mesh_vertex_indexes: failed to allocate memory\n");
                 show_free_ram();
             }
             debug_log("Reading %u vertex indexes\n", n);
             for (uint32_t i = 0; i < n; i++) {
                 uint16_t index = m_proc->readWord_t();
-                if (idx) {
-                    *idx++ = index;
-                }
-                if (!(i & 0x1F)) debug_log("%u %hu\n", i, index);
+                *idx++ = index;
             }
-            debug_log("\n");
         }
     }
 
     // VDU 23, 0, &A0, sid; &49, 3, oid; n; u0; v0; ... :  Define Object Texture Coordinates
     void define_object_texture_coordinates() {
         auto object = get_object();
-        if (object->m_object.textCoord) {
-            heap_caps_free(object->m_object.textCoord);
-            object->m_object.textCoord = NULL;
-        }
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            auto size = n*sizeof(p3d::Vec2f);
-            object->m_object.textCoord = (p3d::Vec2f*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto coord = object->m_object.textCoord;
+            allocate_tempmesh(0, 0, n); // Allocate space for texture coordinates only
+            auto coord = m_tempmesh->textCoord;
             if (!coord) {
-                debug_log("set_mesh_vertex_indexes: failed to allocate %u bytes\n", size);
+                debug_log("define_object_texture_coordinates: failed to allocate memory\n");
                 show_free_ram();
             }
             debug_log("Reading %u texture coordinates\n", n);
             for (uint32_t i = 0; i < n; i++) {
                 uint16_t u = m_proc->readWord_t();
                 uint16_t v = m_proc->readWord_t();
-                if (coord) {
-                    coord->x = convert_texture_coordinate_value(u);
-                    // coord->y = convert_texture_coordinate_value(v);
-                    coord->y = 1 - convert_texture_coordinate_value(v); // uvs are normal cartesian in blender
-                    coord++;
-                }
+                coord->x = convert_texture_coordinate_value(u);
+                coord->y = 1 - convert_texture_coordinate_value(v);  // Correct UV orientation
+                coord++;
             }
         }
     }
 
-    // VDU 23, 0, &A0, sid; &49, 4, mid; n; i0; ... :  Set Object Texture Coordinate Indexes
+    // VDU 23, 0, &A0, sid; &49, 4, oid; n; i0; ... :  Set Object Texture Coordinate Indexes
     void set_object_texture_coordinate_indexes() {
         auto object = get_object();
-        if (object->m_object.tex_indices) {
-            heap_caps_free(object->m_object.tex_indices);
-            object->m_object.tex_indices = NULL;
-        }
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            auto size = n*sizeof(uint16_t);
-            object->m_object.tex_indices = (uint16_t*) heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-            auto idx = object->m_object.tex_indices;
+            allocate_tempmesh(0, 0, n); // Allocate space for texture indices in temp mesh
+
+            auto idx = m_tempmesh->tex_indices;
             if (!idx) {
-                debug_log("set_texture_coordinate_indexes: failed to allocate %u bytes\n", size);
+                debug_log("set_object_texture_coordinate_indexes: failed to allocate memory\n");
                 show_free_ram();
             }
             debug_log("Reading %u texture coordinate indexes\n", n);
             for (uint32_t i = 0; i < n; i++) {
                 uint16_t index = m_proc->readWord_t();
-            // this check isn't strictly necessary, and if it fails we have bigger issues
-            // but if we do it, adding indexes_count to Object is one way to tackle it
-            // however, that requires mods to the Object creation routines and other stuff so why bother?
-                // if (idx && (i < object->m_object.indexes_count)) {
-                //     *idx++ = index;
-                // }
-                *idx++ = index;
-                if (!(i & 0x1F)) debug_log("%u %hu\n", i, index);
+                *idx++ = index;  // Write to the m_tempmesh->tex_indices
             }
         }
     }
 
-    // VDU 23, 0, &A0, sid; &49, 5, oid; mid; bmid; :  Create Object
-    void create_object() {
-        auto object = get_object();
-        auto mesh = get_mesh();
-        auto bmid = m_proc->readWord_t();
-        // if (object && mesh && bmid) {
-        if (object && mesh) {
-            printf("Creating 3D object %u with bitmap %u\n", object->m_oid, bmid);
-            auto stored_bitmap = getBitmap(bmid);
-            if (stored_bitmap) {
-                auto bitmap = stored_bitmap.get();
-                if (bitmap) {
-                    auto size = p3d::Vec2i{(int)bitmap->width, (int)bitmap->height};
-                    auto pix = (p3d::Pixel*) bitmap->data;
-                    // object->bind();
-                    texture_init(&object->m_texture, size, pix);
-                    // object->m_object.mesh = mesh;
-                    // debug_log("Texture data:  %02hX %02hX %02hX %02hX\n", pix->r, pix->g, pix->b, pix->a);
-                }
-            }
-            object->bind();
-            object->m_object.mesh = mesh;
-            printf("Object %u created\n", object->m_oid);
+// VDU 23, 0, &A0, sid; &49, 5, oid; mid; bmid; :  Create Object
+void create_object() {
+    auto object = get_object();
+    auto mesh = get_mesh();
+    auto bmid = m_proc->readWord_t();
+
+    if (object && m_tempmesh) {
+        // Allocate space for vertices in the permanent mesh
+        int vertex_count = m_tempmesh->indexes_count;
+        mesh->vertices = (p3d::Vertex*)heap_caps_malloc(vertex_count * sizeof(p3d::Vertex), MALLOC_CAP_SPIRAM);
+
+        if (!mesh->vertices) {
+            debug_log("create_object: failed to allocate memory for mesh vertices\n");
+            deallocate_tempmesh(); // Clean up
+            return;
         }
+
+        // Populate the permanent mesh with data from the temp mesh
+        for (int i = 0; i < vertex_count; i += 3) {
+            // Fetch positions from temp mesh
+            p3d::Vec3f *v1 = &m_tempmesh->positions[m_tempmesh->pos_indices[i + 0]];
+            p3d::Vec3f *v2 = &m_tempmesh->positions[m_tempmesh->pos_indices[i + 1]];
+            p3d::Vec3f *v3 = &m_tempmesh->positions[m_tempmesh->pos_indices[i + 2]];
+
+            // Fetch UVs from temp mesh
+            p3d::Vec2f *uv1 = &m_tempmesh->textCoord[m_tempmesh->tex_indices[i + 0]];
+            p3d::Vec2f *uv2 = &m_tempmesh->textCoord[m_tempmesh->tex_indices[i + 1]];
+            p3d::Vec2f *uv3 = &m_tempmesh->textCoord[m_tempmesh->tex_indices[i + 2]];
+
+            // Assign positions, UVs, and initialize normals to zero in the permanent mesh
+            mesh->vertices[i + 0].position = *v1;
+            mesh->vertices[i + 0].uv = *uv1;
+            // mesh->vertices[i + 0].normal = {0.0f, 0.0f, 0.0f};
+
+            mesh->vertices[i + 1].position = *v2;
+            mesh->vertices[i + 1].uv = *uv2;
+            // mesh->vertices[i + 1].normal = {0.0f, 0.0f, 0.0f};
+
+            mesh->vertices[i + 2].position = *v3;
+            mesh->vertices[i + 2].uv = *uv3;
+            // mesh->vertices[i + 2].normal = {0.0f, 0.0f, 0.0f};
+        }
+
+        // Set the mesh for the object
+        object->m_object.mesh = mesh;
+
+        // Bind texture to the object using bitmap id (bmid)
+        auto stored_bitmap = getBitmap(bmid);
+        if (stored_bitmap) {
+            auto bitmap = stored_bitmap.get();
+            if (bitmap) {
+                auto size = p3d::Vec2i{(int)bitmap->width, (int)bitmap->height};
+                auto pix = (p3d::Pixel*)bitmap->data;
+                texture_init(&object->m_texture, size, pix);
+            }
+        }
+
+        // Bind the texture to the material and object
+        object->bind();
+
+        // Deallocate the temporary mesh
+        deallocate_tempmesh();
+
+        debug_log("Object %u created with mesh %u\n", object->m_oid, mesh->indexes_count);
     }
+}
 
     float convert_scale_value(int32_t value) {
         static const float factor = 1.0f / 256.0f;
