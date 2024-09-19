@@ -116,8 +116,8 @@ int rendererRender(Renderer * r) {
     return 0;
 }
 
-static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, const Vec2f* const uv0, const Vec2f* const uv1, const Vec2f* const uv2, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
-    float inv_area = 1.0f / edge(p0, p1, p2);
+static inline void rasterize(int x0, int y0, int x1, int y1, const Vertex* const ver1, const Vertex* const ver2, const Vertex* const ver3, const Texture* const texture, const Vec2i scrSize, Renderer* r, float near, float diffuseLight) {
+    float inv_area = 1.0f / edge(&ver1->position, &ver2->position, &ver3->position);
 
     Vec3f sample;
     Vec2f intersections[2];
@@ -126,7 +126,7 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
     // Iterate over scanlines within the bounding box
     for (int scrY = y0; scrY <= y1; ++scrY) {
         // Find the intersection points of the current scanline with the triangle edges
-        find_scanline_intersections(p0, p1, p2, scrY, intersections, &intersection_count);
+        find_scanline_intersections(&ver1->position, &ver2->position, &ver3->position, scrY, intersections, &intersection_count);
 
         // Continue only if exactly two intersection points are found
         if (intersection_count != 2) continue;
@@ -141,12 +141,12 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
             sample.y = scrY;
 
             // Barycentric coordinates for pixel coverage
-            float w0 = edge(p1, p2, &sample) * inv_area;
-            float w1 = edge(p2, p0, &sample) * inv_area;
-            float w2 = edge(p0, p1, &sample) * inv_area;
+            float w1 = edge(&ver2->position, &ver3->position, &sample) * inv_area;
+            float w2 = edge(&ver3->position, &ver1->position, &sample) * inv_area;
+            float w3 = edge(&ver1->position, &ver2->position, &sample) * inv_area;
 
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
-                float inv_z = w0 / p0->z + w1 / p1->z + w2 / p2->z;
+            if (w1 >= 0 && w2 >= 0 && w3 >= 0) {
+                float inv_z = w1 / ver1->position.z + w2 / ver2->position.z + w3 / ver3->position.z;
                 if (inv_z < -near) {
                     continue;
                 }
@@ -160,10 +160,10 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
 
                 Pixel color = {255};
                 if (texture) {
-                    // Interpolate the texture coordinates
+                    // Interpolate the texture coordinates using the UV coordinates in Vertex
                     Vec2f uv;
-                    uv.x = (uv0->x * w0 + uv1->x * w1 + uv2->x * w2) * z;
-                    uv.y = (uv0->y * w0 + uv1->y * w1 + uv2->y * w2) * z;
+                    uv.x = (ver1->uv.x * w1 + ver2->uv.x * w2 + ver3->uv.x * w3) * z;
+                    uv.y = (ver1->uv.y * w1 + ver2->uv.y * w2 + ver3->uv.y * w3) * z;
 
                     // Shade the pixel and update the color buffer
                     color = shade(texture, uv);
@@ -174,6 +174,7 @@ static inline void rasterize(int x0, int y0, int x1, int y1, const Vec3f* const 
         }
     }
 }
+
 
 int orient2d( Vec2i a,  Vec2i b,  Vec2i c)
 {
@@ -193,27 +194,11 @@ void backendDrawPixel (Renderer * r, Texture * f, Vec2i pos, Pixel color, float 
     }
 }
 
-// SCRATCHPIXEL FUNCTIONS
-// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
-static inline void persp_divide(struct Vec3f* p) {
-    if (p->z > -Z_THRESHOLD) {
-        p->z = -Z_THRESHOLD;
-    }
-    float inv_z = -1.0f / p->z;
-    p->x *= inv_z;
-    p->y *= inv_z;
-}
-
-static inline void to_raster(const Vec2i size, struct Vec3f* const p) {
-    p->x = (p->x + 1) * 0.5f * (float)size.x;
-    p->y = (1 - p->y) * 0.5f * (float)size.y;
-}
-
-static inline void tri_bbox(const Vec3f* const p0, const Vec3f* const p1, const Vec3f* const p2, float* const bbox) {
-    bbox[0] = MIN(MIN(p0->x, p1->x), p2->x);
-    bbox[1] = MIN(MIN(p0->y, p1->y), p2->y);
-    bbox[2] = MAX(MAX(p0->x, p1->x), p2->x);
-    bbox[3] = MAX(MAX(p0->y, p1->y), p2->y);
+static inline void tri_bbox(const Vertex* const ver1, const Vertex* const ver2, const Vertex* const ver3, float* const bbox) {
+    bbox[0] = MIN(MIN(ver1->position.x, ver2->position.x), ver3->position.x); // x min
+    bbox[1] = MIN(MIN(ver1->position.y, ver2->position.y), ver3->position.y); // y min
+    bbox[2] = MAX(MAX(ver1->position.x, ver2->position.x), ver3->position.x); // x max
+    bbox[3] = MAX(MAX(ver1->position.y, ver2->position.y), ver3->position.y); // y max
 }
 
 static inline float edge(const Vec3f* const a, const Vec3f* const b, const Vec3f* const test) {
@@ -237,15 +222,15 @@ static Pixel shade(const Texture* texture, Vec2f uv) {
 
 // NOT SCRATCHPIXEL BUT NOT PINGO EITHER
 // Helper function to find intersection of a line segment with the screen bounds
-static inline int clip_edge(float y, const Vec3f* const v0, const Vec3f* const v1, Vec2f* out) {
+static inline int clip_edge(float y, const Vec3f* const ver1, const Vec3f* const ver2, Vec2f* out) {
     // Check if the edge is horizontal (skip as no intersection along the scanline)
-    if (v0->y == v1->y) return 0;
+    if (ver1->y == ver2->y) return 0;
 
     // Calculate intersection x-coordinate of the line segment with the horizontal line y
-    float t = (y - v0->y) / (v1->y - v0->y);
+    float t = (y - ver1->y) / (ver2->y - ver1->y);
     if (t < 0 || t > 1) return 0; // Intersection not within the segment
 
-    out->x = v0->x + t * (v1->x - v0->x);
+    out->x = ver1->x + t * (ver2->x - ver1->x);
     out->y = y;
     return 1; // Valid intersection found
 }
@@ -278,63 +263,67 @@ static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const 
     }
 }
 
+static inline void process_vertex(Vertex* v, const Mat4* transform, const Vec2i screenSize) {
+    // Matrix multiplication (apply the model-view-projection matrix) on the vertex position
+    float x = v->position.x * transform->elements[0] + v->position.y * transform->elements[1] + v->position.z * transform->elements[2] + 1.0f * transform->elements[3];
+    float y = v->position.x * transform->elements[4] + v->position.y * transform->elements[5] + v->position.z * transform->elements[6] + 1.0f * transform->elements[7];
+    float z = v->position.x * transform->elements[8] + v->position.y * transform->elements[9] + v->position.z * transform->elements[10] + 1.0f * transform->elements[11];
+    float w = v->position.x * transform->elements[12] + v->position.y * transform->elements[13] + v->position.z * transform->elements[14] + 1.0f * transform->elements[15];
+    
+    Vec4f transformed = {x, y, z, w}; // Create a Vec4f to store the transformed position
+
+    // Perspective divide
+    if (transformed.z > -Z_THRESHOLD) {
+        transformed.z = -Z_THRESHOLD;
+    }
+    float inv_z = -1.0f / transformed.z;
+    transformed.x *= inv_z;
+    transformed.y *= inv_z;
+
+    // Convert to raster space
+    transformed.x = (transformed.x + 1) * 0.5f * (float)screenSize.x;
+    transformed.y = (1 - transformed.y) * 0.5f * (float)screenSize.y;
+
+    // Update the vertex position with the transformed values
+    v->position.x = transformed.x;
+    v->position.y = transformed.y;
+    v->position.z = transformed.z; // Optional: Update z if needed for rasterization depth
+}
+
 int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
     const Vec2i screenSize = r->frameBuffer.size;
     Object *object = ren.impl;
-    
-    // Fetch mesh and vertex data
     Mesh *mesh = object->mesh;
     Vertex *vertices = mesh->vertices;
     int idx_count = mesh->indexes_count;
-
-    // Precompute model-view-projection matrix once
     Mat4 mtxMdl = mat4MultiplyM(&object->transform, &object_transform);
     Mat4 mtxMdlVw = mat4MultiplyM(&mtxMdl, &r->camera.view);
     Mat4 mtxMdlVwProj = mat4MultiplyM(&mtxMdlVw, &r->camera.projection);
     float nearPlane = r->camera.near;
+    Vertex *v_ptr = vertices;
 
-    // Use a pointer to iterate over the vertices array
-    Vertex *v_ptr = vertices;  // Start pointer at the first vertex
-
-    // Process each triangle
     for (int i = 0; i < idx_count; i += 3) {
-        // Access the vertices directly via the pointer
-        Vertex *v1 = v_ptr++;
-        Vertex *v2 = v_ptr++;
-        Vertex *v3 = v_ptr++;
+        Vertex ver1 = *v_ptr++;
+        process_vertex(&ver1, &mtxMdlVwProj, screenSize);  
 
-        // Convert positions to Vec4f and apply transformation
-        Vec4f ver1 = {v1->position.x, v1->position.y, v1->position.z, 1};
-        Vec4f ver2 = {v2->position.x, v2->position.y, v2->position.z, 1};
-        Vec4f ver3 = {v3->position.x, v3->position.y, v3->position.z, 1};
+        Vertex ver2 = *v_ptr++;
+        process_vertex(&ver2, &mtxMdlVwProj, screenSize);  
+        
+        Vertex ver3 = *v_ptr++;
+        process_vertex(&ver3, &mtxMdlVwProj, screenSize);  
 
-        ver1 = mat4MultiplyVec4(&ver1, &mtxMdlVwProj);
-        ver2 = mat4MultiplyVec4(&ver2, &mtxMdlVwProj);
-        ver3 = mat4MultiplyVec4(&ver3, &mtxMdlVwProj);
-
-        // Early culling if behind near plane
-        if (ver1.z > -nearPlane && ver2.z > -nearPlane && ver3.z > -nearPlane)
+        // Near plane culling
+        if (ver1.position.z > -nearPlane && ver2.position.z > -nearPlane && ver3.position.z > -nearPlane)
             continue;
-
-        // Perspective divide
-        persp_divide((Vec3f *)&ver1);
-        persp_divide((Vec3f *)&ver2);
-        persp_divide((Vec3f *)&ver3);
 
         // Backface culling
-        if ((ver2.y - ver1.y) * (ver3.x - ver2.x) - (ver3.y - ver2.y) * (ver2.x - ver1.x) >= 0)
+        if ((ver2.position.y - ver1.position.y) * (ver3.position.x - ver2.position.x) - 
+            (ver3.position.y - ver2.position.y) * (ver2.position.x - ver1.position.x) >= 0)
             continue;
 
-        // Convert to raster space
-        to_raster(screenSize, (Vec3f *)&ver1);
-        to_raster(screenSize, (Vec3f *)&ver2);
-        to_raster(screenSize, (Vec3f *)&ver3);
-
-        // Compute bounding box
         float bbx[4];
-        tri_bbox((Vec3f *)&ver1, (Vec3f *)&ver2, (Vec3f *)&ver3, bbx);
-
-        // Bounding box constraints
+        tri_bbox(&ver1, &ver2, &ver3, bbx);  
+        // Bounding box culling
         if (bbx[0] > screenSize.x - 1 || bbx[2] < 0 || bbx[1] > screenSize.y - 1 || bbx[3] < 0)
             continue;
 
@@ -343,26 +332,16 @@ int renderObject(Mat4 object_transform, Renderer *r, Renderable ren) {
         int xMax = MIN(screenSize.x - 1, (int)bbx[2]);
         int yMax = MIN(screenSize.y - 1, (int)bbx[3]);
 
-        // Texture coordinates processing
-        Vec2f textureCoord1 = v1->uv;
-        Vec2f textureCoord2 = v2->uv;
-        Vec2f textureCoord3 = v3->uv;
-
-        // Perspective correct
-        textureCoord1.x /= ver1.z;
-        textureCoord1.y /= ver1.z;
-        textureCoord2.x /= ver2.z;
-        textureCoord2.y /= ver2.z;
-        textureCoord3.x /= ver3.z;
-        textureCoord3.y /= ver3.z;
+        // Perspective correct UV coordinates
+        ver1.uv.x /= ver1.position.z;
+        ver1.uv.y /= ver1.position.z;
+        ver2.uv.x /= ver2.position.z;
+        ver2.uv.y /= ver2.position.z;
+        ver3.uv.x /= ver3.position.z;
+        ver3.uv.y /= ver3.position.z;
 
         // Rasterize the triangle
-        rasterize(xMin, yMin, xMax, yMax, 
-                  (Vec3f *)&ver1, 
-                  (Vec3f *)&ver2, 
-                  (Vec3f *)&ver3, 
-                  &textureCoord1, &textureCoord2, &textureCoord3, 
-                  object->material->texture, screenSize, r, nearPlane, 1.0);
+        rasterize(xMin, yMin, xMax, yMax, &ver1, &ver2, &ver3, object->material->texture, screenSize, r, nearPlane, 1.0f);
     }
 
     return 0;

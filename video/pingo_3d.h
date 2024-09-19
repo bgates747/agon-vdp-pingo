@@ -249,17 +249,16 @@ typedef struct tag_Pingo3dControl {
 
     typedef struct m_tempmesh {
         int indexes_count;
-        uint16_t * pos_indices;
-        p3d::Vec3f * positions;
-        uint16_t * tex_indices;
-        p3d::Vec2f * textCoord;
+        uint16_t *pos_indices;
+        p3d::Vec3f *positions;
+        uint16_t *tex_indices;
+        p3d::Vec2f *textCoord;
     } TempMesh;
-
 
     TempMesh* m_tempmesh = NULL;
 
     // Function to allocate temporary mesh structure
-    void allocate_tempmesh(uint32_t vertex_count, uint32_t index_count, uint32_t uv_count) {
+    void allocate_tempmesh(uint32_t vertex_count, uint32_t pos_index_count, uint32_t uv_count, uint32_t uv_index_count) {
         if (!m_tempmesh) {
             m_tempmesh = (TempMesh*)heap_caps_malloc(sizeof(TempMesh), MALLOC_CAP_SPIRAM);
             memset(m_tempmesh, 0, sizeof(TempMesh));
@@ -269,13 +268,18 @@ typedef struct tag_Pingo3dControl {
         if (vertex_count > 0) {
             m_tempmesh->positions = (p3d::Vec3f*)heap_caps_malloc(vertex_count * sizeof(p3d::Vec3f), MALLOC_CAP_SPIRAM);
         }
-        if (index_count > 0) {
-            m_tempmesh->pos_indices = (uint16_t*)heap_caps_malloc(index_count * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+        if (pos_index_count > 0) {
+            m_tempmesh->pos_indices = (uint16_t*)heap_caps_malloc(pos_index_count * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+            m_tempmesh->indexes_count = pos_index_count;
         }
         if (uv_count > 0) {
             m_tempmesh->textCoord = (p3d::Vec2f*)heap_caps_malloc(uv_count * sizeof(p3d::Vec2f), MALLOC_CAP_SPIRAM);
         }
+        if (uv_index_count > 0) {
+            m_tempmesh->tex_indices = (uint16_t*)heap_caps_malloc(uv_index_count * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+        }
     }
+
 
     // Function to deallocate the temporary mesh
     void deallocate_tempmesh() {
@@ -537,10 +541,11 @@ typedef struct tag_Pingo3dControl {
 
     // VDU 23, 0, &A0, sid; &49, 1, mid; n; x0; y0; z0; ... :  Define Mesh Vertices
     void define_mesh_vertices() {
-        auto mesh = get_mesh();
+        // auto mesh = get_mesh();
+        auto mid = m_proc->readWord_t();
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            allocate_tempmesh(n, 0, 0); // Allocate space for positions only
+            allocate_tempmesh(n, 0, 0, 0); // Allocate space for positions only
             auto pos = m_tempmesh->positions;
             if (!pos) {
                 debug_log("define_mesh_vertices: failed to allocate memory\n");
@@ -561,10 +566,11 @@ typedef struct tag_Pingo3dControl {
 
     // VDU 23, 0, &A0, sid; &49, 2, mid; n; i0; ... :  Set Mesh Vertex Indexes
     void set_mesh_vertex_indexes() {
-        auto mesh = get_mesh();
+        // auto mesh = get_mesh();
+        auto mid = m_proc->readWord_t();
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            allocate_tempmesh(0, n, 0); // Allocate space for indices only
+            allocate_tempmesh(0, n, 0, 0); // Allocate space for position indices only
             auto idx = m_tempmesh->pos_indices;
             if (!idx) {
                 debug_log("set_mesh_vertex_indexes: failed to allocate memory\n");
@@ -583,7 +589,7 @@ typedef struct tag_Pingo3dControl {
         auto object = get_object();
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            allocate_tempmesh(0, 0, n); // Allocate space for texture coordinates only
+            allocate_tempmesh(0, 0, n, 0); // Allocate space for texture coordinates only
             auto coord = m_tempmesh->textCoord;
             if (!coord) {
                 debug_log("define_object_texture_coordinates: failed to allocate memory\n");
@@ -605,7 +611,7 @@ typedef struct tag_Pingo3dControl {
         auto object = get_object();
         auto n = (uint32_t) m_proc->readWord_t();
         if (n > 0) {
-            allocate_tempmesh(0, 0, n); // Allocate space for texture indices in temp mesh
+            allocate_tempmesh(0, 0, 0, n); // Allocate space for texture indices in temp mesh
 
             auto idx = m_tempmesh->tex_indices;
             if (!idx) {
@@ -626,16 +632,12 @@ void create_object() {
     auto mesh = get_mesh();
     auto bmid = m_proc->readWord_t();
 
-    if (object && m_tempmesh) {
+    // if (object && m_tempmesh) {
         // Allocate space for vertices in the permanent mesh
         int vertex_count = m_tempmesh->indexes_count;
+        mesh->indexes_count = vertex_count;
         mesh->vertices = (p3d::Vertex*)heap_caps_malloc(vertex_count * sizeof(p3d::Vertex), MALLOC_CAP_SPIRAM);
-
-        if (!mesh->vertices) {
-            debug_log("create_object: failed to allocate memory for mesh vertices\n");
-            deallocate_tempmesh(); // Clean up
-            return;
-        }
+        printf("Allocated memory for %d vertices at address %p, total size: %zu bytes\n", vertex_count, mesh->vertices, vertex_count * sizeof(p3d::Vertex));
 
         // Populate the permanent mesh with data from the temp mesh
         for (int i = 0; i < vertex_count; i += 3) {
@@ -683,8 +685,8 @@ void create_object() {
         // Deallocate the temporary mesh
         deallocate_tempmesh();
 
-        debug_log("Object %u created with mesh %u\n", object->m_oid, mesh->indexes_count);
-    }
+        printf("Object %u created with mesh %u\n", object->m_oid, mesh->indexes_count);
+    // }
 }
 
     float convert_scale_value(int32_t value) {
