@@ -11,4 +11,8 @@ typedef struct Mesh {
     Vec3f * positions;
 } Mesh;
 
-
+typedef struct {
+    Vec3f position;  // Vertex position (x, y, z)
+    Vec2f uv;        // UV coordinates (x=u, y=v)
+    Vec3f normal;    // Normal vector (x, y, z)
+} Vertex;

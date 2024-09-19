@@ -1,137 +1,78 @@
 #include "hecker.h"
 
-// code shamelessly stolen from https://chrishecker.com/images/4/41/Gdmtex1.pdf
-// src/orig/DIVFLFL.CPP
-
-#ifndef Z_THRESHOLD
-#define Z_THRESHOLD 0.000001f
-#endif
-
-// Macro to safely perform division, preventing division by values near zero
-#define SAFE_DIV(numerator, denominator) ((fabs(denominator) > Z_THRESHOLD) ? ((numerator) / (denominator)) : 0.0f)
-
-// Initialize gradients structure with register-efficient optimizations
+// Initialize gradients structure
 void InitializeGradients(Gradients *gradients, const Vertex *pVertices) {
-    // Load vertex positions and texture coordinates directly into local variables for register efficiency
-    float pos0x = pVertices[0].position.x;
-    float pos0y = pVertices[0].position.y;
-    float pos0z = pVertices[0].position.z;
-    float pos1x = pVertices[1].position.x;
-    float pos1y = pVertices[1].position.y;
-    float pos1z = pVertices[1].position.z;
-    float pos2x = pVertices[2].position.x;
-    float pos2y = pVertices[2].position.y;
-    float pos2z = pVertices[2].position.z;
-
-    float uv0x = pVertices[0].uv.x;
-    float uv0y = pVertices[0].uv.y;
-    float uv1x = pVertices[1].uv.x;
-    float uv1y = pVertices[1].uv.y;
-    float uv2x = pVertices[2].uv.x;
-    float uv2y = pVertices[2].uv.y;
-
-    // Calculate differences in x and y once and store them
-    float deltaX1 = pos1x - pos2x;
-    float deltaX0 = pos0x - pos2x;
-    float deltaY1 = pos1y - pos2y;
-    float deltaY0 = pos0y - pos2y;
-
-    // Combine calculation of 1/dX and 1/dY early to minimize intermediate memory usage
-    float denominator = (deltaX1 * deltaY0) - (deltaX0 * deltaY1);
-    float OneOverdX = SAFE_DIV(1.0f, denominator);
+    int Counter;
+    float OneOverdX = 1 / (((pVertices[1].position.x - pVertices[2].position.x) *
+                           (pVertices[0].position.y - pVertices[2].position.y)) -
+                          ((pVertices[0].position.x - pVertices[2].position.x) *
+                           (pVertices[1].position.y - pVertices[2].position.y)));
     float OneOverdY = -OneOverdX;
 
-    // Precompute and store 1/z for each vertex
-    float OneOverZ0 = SAFE_DIV(1.0f, pos0z);
-    float OneOverZ1 = SAFE_DIV(1.0f, pos1z);
-    float OneOverZ2 = SAFE_DIV(1.0f, pos2z);
+    for (Counter = 0; Counter < 3; Counter++) {
+        float OneOverZ = 1 / pVertices[Counter].position.z;
+        gradients->aOneOverZ[Counter] = OneOverZ;
+        gradients->aUOverZ[Counter] = pVertices[Counter].uv.x * OneOverZ;  // Use uv.x instead of u
+        gradients->aVOverZ[Counter] = pVertices[Counter].uv.y * OneOverZ;  // Use uv.y instead of v
+    }
 
-    gradients->aOneOverZ[0] = OneOverZ0;
-    gradients->aOneOverZ[1] = OneOverZ1;
-    gradients->aOneOverZ[2] = OneOverZ2;
+    gradients->dOneOverZdX = OneOverdX * (((gradients->aOneOverZ[1] - gradients->aOneOverZ[2]) *
+                                           (pVertices[0].position.y - pVertices[2].position.y)) -
+                                          ((gradients->aOneOverZ[0] - gradients->aOneOverZ[2]) *
+                                           (pVertices[1].position.y - pVertices[2].position.y)));
+    gradients->dOneOverZdY = OneOverdY * (((gradients->aOneOverZ[1] - gradients->aOneOverZ[2]) *
+                                           (pVertices[0].position.x - pVertices[2].position.x)) -
+                                          ((gradients->aOneOverZ[0] - gradients->aOneOverZ[2]) *
+                                           (pVertices[1].position.x - pVertices[2].position.x)));
 
-    // Precompute U/z and V/z for each vertex and store
-    gradients->aUOverZ[0] = uv0x * OneOverZ0;
-    gradients->aUOverZ[1] = uv1x * OneOverZ1;
-    gradients->aUOverZ[2] = uv2x * OneOverZ2;
+    gradients->dUOverZdX = OneOverdX * (((gradients->aUOverZ[1] - gradients->aUOverZ[2]) *
+                                         (pVertices[0].position.y - pVertices[2].position.y)) -
+                                        ((gradients->aUOverZ[0] - gradients->aUOverZ[2]) *
+                                         (pVertices[1].position.y - pVertices[2].position.y)));
+    gradients->dUOverZdY = OneOverdY * (((gradients->aUOverZ[1] - gradients->aUOverZ[2]) *
+                                         (pVertices[0].position.x - pVertices[2].position.x)) -
+                                        ((gradients->aUOverZ[0] - gradients->aUOverZ[2]) *
+                                         (pVertices[1].position.x - pVertices[2].position.x)));
 
-    gradients->aVOverZ[0] = uv0y * OneOverZ0;
-    gradients->aVOverZ[1] = uv1y * OneOverZ1;
-    gradients->aVOverZ[2] = uv2y * OneOverZ2;
-
-    // Calculate gradients for 1/z, U/z, and V/z with respect to x and y
-    // Combine similar calculations to minimize loading the same variables repeatedly
-    float dOneOverZ1_Z2 = OneOverZ1 - OneOverZ2;
-    float dOneOverZ0_Z2 = OneOverZ0 - OneOverZ2;
-
-    gradients->dOneOverZdX = OneOverdX * ((dOneOverZ1_Z2 * deltaY0) - (dOneOverZ0_Z2 * deltaY1));
-    gradients->dOneOverZdY = OneOverdY * ((dOneOverZ1_Z2 * deltaX0) - (dOneOverZ0_Z2 * deltaX1));
-
-    // U/z gradients
-    float dUOverZ1_U2 = gradients->aUOverZ[1] - gradients->aUOverZ[2];
-    float dUOverZ0_U2 = gradients->aUOverZ[0] - gradients->aUOverZ[2];
-
-    gradients->dUOverZdX = OneOverdX * ((dUOverZ1_U2 * deltaY0) - (dUOverZ0_U2 * deltaY1));
-    gradients->dUOverZdY = OneOverdY * ((dUOverZ1_U2 * deltaX0) - (dUOverZ0_U2 * deltaX1));
-
-    // V/z gradients
-    float dVOverZ1_V2 = gradients->aVOverZ[1] - gradients->aVOverZ[2];
-    float dVOverZ0_V2 = gradients->aVOverZ[0] - gradients->aVOverZ[2];
-
-    gradients->dVOverZdX = OneOverdX * ((dVOverZ1_V2 * deltaY0) - (dVOverZ0_V2 * deltaY1));
-    gradients->dVOverZdY = OneOverdY * ((dVOverZ1_V2 * deltaX0) - (dVOverZ0_V2 * deltaX1));
+    gradients->dVOverZdX = OneOverdX * (((gradients->aVOverZ[1] - gradients->aVOverZ[2]) *
+                                         (pVertices[0].position.y - pVertices[2].position.y)) -
+                                        ((gradients->aVOverZ[0] - gradients->aVOverZ[2]) *
+                                         (pVertices[1].position.y - pVertices[2].position.y)));
+    gradients->dVOverZdY = OneOverdY * (((gradients->aVOverZ[1] - gradients->aVOverZ[2]) *
+                                         (pVertices[0].position.x - pVertices[2].position.x)) -
+                                        ((gradients->aVOverZ[0] - gradients->aVOverZ[2]) *
+                                         (pVertices[1].position.x - pVertices[2].position.x)));
 }
 
-// Initialize edge structure with register-efficient optimizations
+// Initialize edge structure
 void InitializeEdge(Edge *edge, const Gradients *gradients,
                     const Vertex *pVertices, int Top, int Bottom) {
-    // Load vertex positions into local variables for efficiency
-    float TopPosX = pVertices[Top].position.x;
-    float TopPosY = pVertices[Top].position.y;
-    float BottomPosX = pVertices[Bottom].position.x;
-    float BottomPosY = pVertices[Bottom].position.y;
+    edge->y = (int)ceil(pVertices[Top].position.y);
+    int YEnd = (int)ceil(pVertices[Bottom].position.y);
+    float YPrestep = edge->y - pVertices[Top].position.y;
+    float RealHeight = pVertices[Bottom].position.y - pVertices[Top].position.y;
+    float RealWidth = pVertices[Bottom].position.x - pVertices[Top].position.x;
 
-    // Load gradients for Top vertex
-    float TopOneOverZ = gradients->aOneOverZ[Top];
-    float TopUOverZ = gradients->aUOverZ[Top];
-    float TopVOverZ = gradients->aVOverZ[Top];
+    edge->x = ((RealWidth * YPrestep) / RealHeight) + pVertices[Top].position.x;
+    edge->XStep = RealWidth / RealHeight;
 
-    // Calculate Y coordinates, height, and step values early
-    edge->y = (int)ceil(TopPosY);
-    int YEnd = (int)ceil(BottomPosY);
-    float YPrestep = edge->y - TopPosY;
-    float RealHeight = BottomPosY - TopPosY;
-    float RealWidth = BottomPosX - TopPosX;
+    float XPrestep = edge->x - pVertices[Top].position.x;
 
-    // Calculate initial x position and x step
-    edge->x = SAFE_DIV((RealWidth * YPrestep), RealHeight) + TopPosX;
-    edge->XStep = SAFE_DIV(RealWidth, RealHeight);
+    edge->OneOverZ = gradients->aOneOverZ[Top] +
+                     YPrestep * gradients->dOneOverZdY +
+                     XPrestep * gradients->dOneOverZdX;
+    edge->OneOverZStep = edge->XStep * gradients->dOneOverZdX + gradients->dOneOverZdY;
 
-    // Precalculate XPrestep
-    float XPrestep = edge->x - TopPosX;
+    edge->UOverZ = gradients->aUOverZ[Top] +
+                   YPrestep * gradients->dUOverZdY +
+                   XPrestep * gradients->dUOverZdX;
+    edge->UOverZStep = edge->XStep * gradients->dUOverZdX + gradients->dUOverZdY;
 
-    // Calculate 1/z, U/z, and V/z, minimizing repeated access to gradients
-    float dOneOverZdX = gradients->dOneOverZdX;
-    float dOneOverZdY = gradients->dOneOverZdY;
+    edge->VOverZ = gradients->aVOverZ[Top] +
+                   YPrestep * gradients->dVOverZdY +
+                   XPrestep * gradients->dVOverZdX;
+    edge->VOverZStep = edge->XStep * gradients->dVOverZdX + gradients->dVOverZdY;
 
-    edge->OneOverZ = TopOneOverZ + YPrestep * dOneOverZdY + XPrestep * dOneOverZdX;
-    edge->OneOverZStep = edge->XStep * dOneOverZdX + dOneOverZdY;
-
-    // Calculate U/z values
-    float dUOverZdX = gradients->dUOverZdX;
-    float dUOverZdY = gradients->dUOverZdY;
-
-    edge->UOverZ = TopUOverZ + YPrestep * dUOverZdY + XPrestep * dUOverZdX;
-    edge->UOverZStep = edge->XStep * dUOverZdX + dUOverZdY;
-
-    // Calculate V/z values
-    float dVOverZdX = gradients->dVOverZdX;
-    float dVOverZdY = gradients->dVOverZdY;
-
-    edge->VOverZ = TopVOverZ + YPrestep * dVOverZdY + XPrestep * dVOverZdX;
-    edge->VOverZStep = edge->XStep * dVOverZdX + dVOverZdY;
-
-    // Calculate the edge height
     edge->Height = YEnd - edge->y;
 }
 
@@ -146,7 +87,7 @@ void EdgeStep(Edge *edge) {
     edge->VOverZ += edge->VOverZStep;
 }
 
-// DrawScanLine function with SAFE_DIV macro applied
+// DrawScanLine function
 void DrawScanLine(Texture *pDest, const Gradients *gradients, const Edge *pLeft, const Edge *pRight, const Texture *pTexture) {
     int XStart = (int)ceil(pLeft->x);
     float XPrestep = XStart - pLeft->x;
@@ -160,8 +101,8 @@ void DrawScanLine(Texture *pDest, const Gradients *gradients, const Edge *pLeft,
 
     if (Width > 0) {
         while (Width--) {
-            // Interpolated Z value using SAFE_DIV
-            float z = SAFE_DIV(1.0f, OneOverZ);
+            // Interpolated Z value
+            float z = 1 / OneOverZ;
 
             // Interpolated texture coordinates
             float u = UOverZ * z;
@@ -176,7 +117,10 @@ void DrawScanLine(Texture *pDest, const Gradients *gradients, const Edge *pLeft,
             // Sample the texture at interpolated (u, v) coordinates
             int tex_x = (int)(u * pTexture->size.x);
             int tex_y = (int)(v * pTexture->size.y);
-            Pixel tex_color = pTexture->pixels[tex_y * pTexture->size.x + tex_x];
+            Pixel tex_color = pTexture->pixels[tex_y * pTexture->size.y + tex_x];
+
+            // Debug output for each pixel
+            // printf("Pixel (%d, %d): u=%f, v=%f, Texture Pixel = (%d, %d, %d, %d)\n", XStart + Width, pLeft->y, u, v, tex_color.r, tex_color.g, tex_color.b, tex_color.a);
 
             // Draw the pixel
             *pDestPixel = tex_color;
@@ -199,9 +143,9 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
     float Y2 = pVertices[2].position.y;
 
     // Debug: Print initial vertex positions
-    // printf("Initial Vertex Positions:\n");
+    printf("Initial Vertex Positions:\n");
     for (int i = 0; i < 3; i++) {
-        // printf("V%d: (%f, %f, %f)\n", i, pVertices[i].position.x, pVertices[i].position.y, pVertices[i].position.z);
+        printf("V%d: (%f, %f, %f)\n", i, pVertices[i].position.x, pVertices[i].position.y, pVertices[i].position.z);
     }
 
     // Sort vertices in y
@@ -236,11 +180,12 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
     }
 
     // Debug: Print sorted vertex indices
-    // printf("Sorted Vertices: Top=%d, Middle=%d, Bottom=%d\n", Top, Middle, Bottom);
+    printf("Sorted Vertices: Top=%d, Middle=%d, Bottom=%d\n", Top, Middle, Bottom);
 
     Gradients gradients;
     InitializeGradients(&gradients, pVertices);
-    // printf("Gradients Initialized: dOneOverZdX=%f, dOneOverZdY=%f, dUOverZdX=%f, dUOverZdY=%f\n", gradients.dOneOverZdX, gradients.dOneOverZdY, gradients.dUOverZdX, gradients.dUOverZdY);
+    printf("Gradients Initialized: dOneOverZdX=%f, dOneOverZdY=%f, dUOverZdX=%f, dUOverZdY=%f\n",
+           gradients.dOneOverZdX, gradients.dOneOverZdY, gradients.dUOverZdX, gradients.dUOverZdY);
 
     Edge TopToBottom, TopToMiddle, MiddleToBottom;
     InitializeEdge(&TopToBottom, &gradients, pVertices, Top, Bottom);
@@ -248,10 +193,10 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
     InitializeEdge(&MiddleToBottom, &gradients, pVertices, Middle, Bottom);
 
     // Debug: Print edge initialization data
-    // printf("Edges Initialized:\n");
-    // printf("TopToBottom: y=%d, Height=%d, XStep=%f\n", TopToBottom.y, TopToBottom.Height, TopToBottom.XStep);
-    // printf("TopToMiddle: y=%d, Height=%d, XStep=%f\n", TopToMiddle.y, TopToMiddle.Height, TopToMiddle.XStep);
-    // printf("MiddleToBottom: y=%d, Height=%d, XStep=%f\n", MiddleToBottom.y, MiddleToBottom.Height, MiddleToBottom.XStep);
+    printf("Edges Initialized:\n");
+    printf("TopToBottom: y=%d, Height=%d, XStep=%f\n", TopToBottom.y, TopToBottom.Height, TopToBottom.XStep);
+    printf("TopToMiddle: y=%d, Height=%d, XStep=%f\n", TopToMiddle.y, TopToMiddle.Height, TopToMiddle.XStep);
+    printf("MiddleToBottom: y=%d, Height=%d, XStep=%f\n", MiddleToBottom.y, MiddleToBottom.Height, MiddleToBottom.XStep);
 
     Edge *pLeft, *pRight;
     int MiddleIsLeft;
@@ -266,13 +211,13 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
     }
 
     // Debug: Print which side is left and which is right
-    // printf("MiddleIsLeft: %d\n", MiddleIsLeft);
+    printf("MiddleIsLeft: %d\n", MiddleIsLeft);
 
     int Height = TopToMiddle.Height;
     if (Height > 0) {
-        // printf("Rendering top half from y=%d for %d scanlines\n", TopToMiddle.y, Height);
+        printf("Rendering top half from y=%d for %d scanlines\n", TopToMiddle.y, Height);
     } else {
-        // printf("Skipping top half, no scanlines to draw.\n");
+        printf("Skipping top half, no scanlines to draw.\n");
     }
 
     while (Height-- > 0) {
@@ -283,9 +228,9 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
 
     Height = MiddleToBottom.Height;
     if (Height > 0) {
-        // printf("Rendering bottom half from y=%d for %d scanlines\n", MiddleToBottom.y, Height);
+        printf("Rendering bottom half from y=%d for %d scanlines\n", MiddleToBottom.y, Height);
     } else {
-        // printf("Skipping bottom half, no scanlines to draw.\n");
+        printf("Skipping bottom half, no scanlines to draw.\n");
     }
 
     if (MiddleIsLeft) {
