@@ -12,8 +12,8 @@ void InitializeGradients(Gradients *gradients, const Vertex *pVertices) {
     for (Counter = 0; Counter < 3; Counter++) {
         float OneOverZ = 1 / pVertices[Counter].position.z;
         gradients->aOneOverZ[Counter] = OneOverZ;
-        gradients->aUOverZ[Counter] = pVertices[Counter].uv.x * OneOverZ;  // Use uv.x instead of u
-        gradients->aVOverZ[Counter] = pVertices[Counter].uv.y * OneOverZ;  // Use uv.y instead of v
+        gradients->aUOverZ[Counter] = pVertices[Counter].uv.x * OneOverZ;
+        gradients->aVOverZ[Counter] = pVertices[Counter].uv.y * OneOverZ;
     }
 
     gradients->dOneOverZdX = OneOverdX * (((gradients->aOneOverZ[1] - gradients->aOneOverZ[2]) *
@@ -45,8 +45,7 @@ void InitializeGradients(Gradients *gradients, const Vertex *pVertices) {
 }
 
 // Initialize edge structure
-void InitializeEdge(Edge *edge, const Gradients *gradients,
-                    const Vertex *pVertices, int Top, int Bottom) {
+void InitializeEdge(Edge *edge, const Gradients *gradients, const Vertex *pVertices, int Top, int Bottom) {
     edge->y = (int)ceil(pVertices[Top].position.y);
     int YEnd = (int)ceil(pVertices[Bottom].position.y);
     float YPrestep = edge->y - pVertices[Top].position.y;
@@ -143,9 +142,9 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
     float Y2 = pVertices[2].position.y;
 
     // Debug: Print initial vertex positions
-    printf("Initial Vertex Positions:\n");
+    printf("\nInitial Vertex Positions:\n");
     for (int i = 0; i < 3; i++) {
-        printf("V%d: (%f, %f, %f)\n", i, pVertices[i].position.x, pVertices[i].position.y, pVertices[i].position.z);
+        // printf("V%d: (%f, %f, %f)\n", i, pVertices[i].position.x, pVertices[i].position.y, pVertices[i].position.z);
     }
 
     // Sort vertices in y
@@ -184,8 +183,7 @@ void TextureMapTriangle(Texture *pDest, const Vertex *pVertices, Texture *pTextu
 
     Gradients gradients;
     InitializeGradients(&gradients, pVertices);
-    printf("Gradients Initialized: dOneOverZdX=%f, dOneOverZdY=%f, dUOverZdX=%f, dUOverZdY=%f\n",
-           gradients.dOneOverZdX, gradients.dOneOverZdY, gradients.dUOverZdX, gradients.dUOverZdY);
+    printf("Gradients Initialized: dOneOverZdX=%f, dOneOverZdY=%f, dUOverZdX=%f, dUOverZdY=%f\n", gradients.dOneOverZdX, gradients.dOneOverZdY, gradients.dUOverZdX, gradients.dUOverZdY);
 
     Edge TopToBottom, TopToMiddle, MiddleToBottom;
     InitializeEdge(&TopToBottom, &gradients, pVertices, Top, Bottom);

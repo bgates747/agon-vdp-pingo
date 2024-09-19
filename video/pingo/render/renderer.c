@@ -135,16 +135,6 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
     float near = r->camera.near;
     // printf("Near: %f\n", near);
 
-    // CAMERA NORMAL
-    Vec3f cameraNormal = { 
-        v.elements[2],  // forward.x
-        v.elements[6],  // forward.y
-        v.elements[10]  // forward.z
-    };
-    cameraNormal = vec3Normalize(cameraNormal);
-    // printf("Camera normal\n");
-
-    // printf("Preparing to render mesh %p\n", o->mesh);
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
         Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
         Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
@@ -161,24 +151,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         c = mat4MultiplyVec4( &c, &m);
         // printf("Transformed vertices\n");
 
-        // // TODO: convert this to look up normals from the mesh
-        // // FACE NORMAL
-        // Vec3f na = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&b)));
-        // Vec3f nb = vec3fsubV(*((Vec3f*)(&a)), *((Vec3f*)(&c)));
-        // Vec3f faceNormal = vec3Normalize(vec3Cross(na, nb));
-
-        // // Cull triangles facing away from camera
-        // float faceCamDot = vec3Dot(cameraNormal, (Vec3f){0,0,1});
-        // if (faceCamDot < 0)
-        //     continue;
-
-        float diffuseLight = 1.0; // default to full illumination from all directions
-        // if (true) { // set to true for lighting effects at the expense of performance
-        //     Vec3f light = vec3Normalize((Vec3f){-3,8,5});
-        //     diffuseLight = (1.0 + vec3Dot(faceNormal, light)) *0.5;
-        //     diffuseLight = MIN(1.0, MAX(diffuseLight, 0));
-        // }
-
+        float diffuseLight = 1.0;
         a = mat4MultiplyVec4( &a, &v);
         b = mat4MultiplyVec4( &b, &v);
         c = mat4MultiplyVec4( &c, &v);
@@ -193,15 +166,12 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         if (a.z > -near && b.z > -near && c.z > -near)
             continue;
 
-        // CORRECTED WITH SCRATCHPIXEL: 
         // convert to device coordinates by perspective division
         persp_divide((Vec3f *)&a);
         persp_divide((Vec3f *)&b);
         persp_divide((Vec3f *)&c);
         // printf("Perspective division\n");
 
-        // TODO: review this logic as face normals may obviate the need for this
-        // and indeed be the better option to control exactly what faces are rendered
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
         // printf("Clocking: %f\n", clocking);
         if (clocking >= 0)
@@ -232,11 +202,9 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
         Vec2f tcb = {0, 0};
         Vec2f tcc = {0, 0};
         if (tex_coords) {
-            // printf("Trying to get texture coordinates\n");
             tca = tex_coords[o->tex_indices[i + 0]];
             tcb = tex_coords[o->tex_indices[i + 1]];
             tcc = tex_coords[o->tex_indices[i + 2]];
-            // printf("Got texture coordinates\n");
 
             // Perspective correct texture coordinates
             tca.x /= a.z;
@@ -245,10 +213,7 @@ int renderObject(Mat4 object_transform, Renderer * r, Renderable ren) {
             tcb.y /= b.z;
             tcc.x /= c.z;
             tcc.y /= c.z;
-            // printf("Perspective correct texture coordinates\n");
 
-        } else {
-            // printf("No texture coordinates\n");
         }
 
         // Rasterize the triangle with the new scratchpixel logic
@@ -425,75 +390,87 @@ static void find_scanline_intersections(const Vec3f* p0, const Vec3f* p1, const 
     }
 }
 
-int renderObjectHecker(Mat4 object_transform, Renderer *r, Renderable ren) {
+int renderObjectHecker(Mat4 object_transform, Renderer * r, Renderable ren) {
+
     const Vec2i scrSize = r->frameBuffer.size;
-    Object *o = ren.impl;
-    Vec2f *tex_coords = o->textCoord;
+    Object * o = ren.impl;
+    Vec2f * tex_coords = o->textCoord;
+    // printf("Texture coordinates: %p\n", tex_coords);
 
     // MODEL MATRIX
-    Mat4 m = mat4MultiplyM(&o->transform, &object_transform);
+    Mat4 m = mat4MultiplyM( &o->transform, &object_transform );
+    // printf("Model matrix\n");
 
     // CAMERA VIEW AND PROJECTION MATRICES
     Mat4 v = r->camera.view;
+    // printf("View matrix\n");
     Mat4 p = r->camera.projection;
+    // printf("Projection matrix\n");
     float near = r->camera.near;
-
-    // CAMERA NORMAL
-    Vec3f cameraNormal = {
-        v.elements[2],  // forward.x
-        v.elements[6],  // forward.y
-        v.elements[10]  // forward.z
-    };
-    cameraNormal = vec3Normalize(cameraNormal);
+    // printf("Near: %f\n", near);
 
     for (int i = 0; i < o->mesh->indexes_count; i += 3) {
-        Vec3f *ver1 = &o->mesh->positions[o->mesh->pos_indices[i + 0]];
-        Vec3f *ver2 = &o->mesh->positions[o->mesh->pos_indices[i + 1]];
-        Vec3f *ver3 = &o->mesh->positions[o->mesh->pos_indices[i + 2]];
+        Vec3f * ver1 = &o->mesh->positions[o->mesh->pos_indices[i+0]];
+        Vec3f * ver2 = &o->mesh->positions[o->mesh->pos_indices[i+1]];
+        Vec3f * ver3 = &o->mesh->positions[o->mesh->pos_indices[i+2]];
+        // printf("Got vertices\n");
 
-        Vec4f a = {ver1->x, ver1->y, ver1->z, 1};
-        Vec4f b = {ver2->x, ver2->y, ver2->z, 1};
-        Vec4f c = {ver3->x, ver3->y, ver3->z, 1};
+        Vec4f a =  { ver1->x, ver1->y, ver1->z, 1 };
+        Vec4f b =  { ver2->x, ver2->y, ver2->z, 1 };
+        Vec4f c =  { ver3->x, ver3->y, ver3->z, 1 };
+        // printf("Converted vertices to vec4\n");
 
-        // Apply object-to-world transformation
-        a = mat4MultiplyVec4(&a, &m);
-        b = mat4MultiplyVec4(&b, &m);
-        c = mat4MultiplyVec4(&c, &m);
+        a = mat4MultiplyVec4( &a, &m);
+        b = mat4MultiplyVec4( &b, &m);
+        c = mat4MultiplyVec4( &c, &m);
+        // printf("Transformed vertices\n");
 
-        // Apply camera view transformation
-        a = mat4MultiplyVec4(&a, &v);
-        b = mat4MultiplyVec4(&b, &v);
-        c = mat4MultiplyVec4(&c, &v);
+        float diffuseLight = 1.0;
+        a = mat4MultiplyVec4( &a, &v);
+        b = mat4MultiplyVec4( &b, &v);
+        c = mat4MultiplyVec4( &c, &v);
+        // printf("Viewed vertices\n");
 
-        // Apply projection transformation
-        a = mat4MultiplyVec4(&a, &p);
-        b = mat4MultiplyVec4(&b, &p);
-        c = mat4MultiplyVec4(&c, &p);
+        a = mat4MultiplyVec4( &a, &p);
+        b = mat4MultiplyVec4( &b, &p);
+        c = mat4MultiplyVec4( &c, &p);
+        // printf("Projected vertices\n");
 
-        // Don't render triangles behind the near clipping plane
+        // Don't render triangles completely behind the near clipping plane
         if (a.z > -near && b.z > -near && c.z > -near)
             continue;
 
-        // Cull triangles that are not front-facing
+        // Convert to device coordinates by perspective division
+        persp_divide((Vec3f *)&a);
+        persp_divide((Vec3f *)&b);
+        persp_divide((Vec3f *)&c);
+        // printf("Perspective division\n");
+
         float clocking = isClockWise(a.x, a.y, b.x, b.y, c.x, c.y);
+        // printf("Clocking: %f\n", clocking);
         if (clocking >= 0)
             continue;
 
-        // Load up texture coordinates
-        Vec2f tca = {0, 0}, tcb = {0, 0}, tcc = {0, 0};
+        // Convert to raster space
+        to_raster(scrSize, (Vec3f *)&a);
+        to_raster(scrSize, (Vec3f *)&b);
+        to_raster(scrSize, (Vec3f *)&c);
+        // printf("Converted to raster space\n");
+
+        // Set up the Vertex structure for TextureMapTriangle
+        Vertex vertices[3];
+        vertices[0].position = *(Vec3f *)&a;
+        vertices[1].position = *(Vec3f *)&b;
+        vertices[2].position = *(Vec3f *)&c;
+
         if (tex_coords) {
-            tca = tex_coords[o->tex_indices[i + 0]];
-            tcb = tex_coords[o->tex_indices[i + 1]];
-            tcc = tex_coords[o->tex_indices[i + 2]];
+            vertices[0].uv = tex_coords[o->tex_indices[i + 0]];
+            vertices[1].uv = tex_coords[o->tex_indices[i + 1]];
+            vertices[2].uv = tex_coords[o->tex_indices[i + 2]];
         }
 
-        // Prepare vertices for triangle rasterization
-        Vertex vertexA = {(Vec3f){a.x, a.y, a.z}, tca};
-        Vertex vertexB = {(Vec3f){b.x, b.y, b.z}, tcb};
-        Vertex vertexC = {(Vec3f){c.x, c.y, c.z}, tcc};
-
-        // Call the new triangle rasterization function
-        TextureMapTriangle(&r->frameBuffer, (const Vertex[]){vertexA, vertexB, vertexC}, o->material->texture);
+        // Call TextureMapTriangle to render the triangle without manual perspective correction
+        TextureMapTriangle(&r->frameBuffer, vertices, o->material->texture);
     }
 
     return 0;
